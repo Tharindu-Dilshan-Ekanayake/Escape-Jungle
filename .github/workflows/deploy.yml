@@ -1,0 +1,108 @@
+# Ships the game to Boxity Legion (docs/SDK.md > DEPLOYING).
+#   main -> production channel, dev -> playtest (dev) channel.
+#   Every push goes to prod; to stage as well once LEGION_DEPLOY_TOKEN_STAGE is set (opt-in).
+#   Manual run: pick one target.
+name: deploy
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Platform to deploy to
+        type: choice
+        options: [staging, prod]
+        default: staging
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  GAME_ID: escape-the-jungle
+  # Players per lobby room (= the server's maxClients). Boxity decides the pod size from this.
+  ROOM_SIZE: "30"
+
+jobs:
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.pick.outputs.list }}
+    steps:
+      - id: pick
+        env:
+          STAGE_TOKEN: ${{ secrets.LEGION_DEPLOY_TOKEN_STAGE }}
+          MANUAL: ${{ github.event.inputs.target }}
+        run: |
+          if [ -n "$MANUAL" ]; then
+            echo "list=[\"$MANUAL\"]" >> "$GITHUB_OUTPUT"
+          elif [ -n "$STAGE_TOKEN" ]; then
+            echo 'list=["prod","staging"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'list=["prod"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: targets
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.list) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Target settings
+        id: t
+        env:
+          PROD_TOKEN: ${{ secrets.LEGION_DEPLOY_TOKEN }}
+          STAGE_TOKEN: ${{ secrets.LEGION_DEPLOY_TOKEN_STAGE }}
+        run: |
+          if [ "${{ matrix.target }}" = "prod" ]; then
+            TOKEN="$PROD_TOKEN"; API=https://api.bloxity.io; LEGION=https://legion.bloxity.io
+          else
+            TOKEN="$STAGE_TOKEN"; API=https://api.stage.bloxity.io; LEGION=https://legion.stage.bloxity.io
+          fi
+          if [ -z "$TOKEN" ]; then echo "::error::No deploy token for ${{ matrix.target }} (add the repository secret)"; exit 1; fi
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+          echo "api=$API" >> "$GITHUB_OUTPUT"
+          echo "legion=$LEGION" >> "$GITHUB_OUTPUT"
+          CHANNEL=dev; [ "${GITHUB_REF_NAME}" = "main" ] && CHANNEL=prod
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${OWNER}/${GAME_ID}-server:$CHANNEL-${{ matrix.target }}-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the server image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build -t "${{ steps.t.outputs.image }}" server
+          docker push "${{ steps.t.outputs.image }}"
+
+      - name: Roll the server out
+        run: |
+          curl -sf -X POST "${{ steps.t.outputs.legion }}/v1/apps/${GAME_ID}/deploy" \
+            -H "Authorization: Bearer ${{ steps.t.outputs.token }}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"channel\":\"${{ steps.t.outputs.channel }}\",\"image\":\"${{ steps.t.outputs.image }}\",\"version\":\"${GITHUB_SHA::8}\",\"roomSize\":${ROOM_SIZE}}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Build the client (one build for every platform)
+        run: |
+          npm --prefix client ci
+          npm --prefix client run build
+
+      - name: Upload the client
+        run: |
+          (cd client/dist && zip -qr ../../build.zip .)
+          curl -sf -X POST \
+            "${{ steps.t.outputs.api }}/v1/hosting/games/${GAME_ID}/frontend?channel=${{ steps.t.outputs.channel }}&version=${GITHUB_SHA::8}" \
+            -H "Authorization: Bearer ${{ steps.t.outputs.token }}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @build.zip
