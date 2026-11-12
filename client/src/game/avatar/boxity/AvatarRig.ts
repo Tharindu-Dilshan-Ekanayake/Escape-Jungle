@@ -24,11 +24,11 @@ function heldToolMatrix(template: Group, rest: Map<string, Matrix4>): Matrix4 {
   const leaf = rest.get("ArmR2_leaf")?.clone().invert() ?? new Matrix4();
   const hand = new Vector3().setFromMatrixPosition(leaf);
   // Model space (rig faces +Z): blade forward and a little up, edge down.
-  const a = Math.sin(0.45);
-  const b = Math.cos(0.45);
+  const a = Math.sin(A.heldToolRaise);
+  const b = Math.cos(A.heldToolRaise);
   const basis = new Matrix4().makeBasis(new Vector3(-1, 0, 0), new Vector3(0, a, b), new Vector3(0, b, -a));
   basis.setPosition(hand);
-  basis.scale(new Vector3().setScalar(A.rigHeight / A.height));
+  basis.scale(new Vector3().setScalar((A.rigHeight / A.height) * A.heldToolScale));
   m = inv.clone().multiply(basis);
   heldCache.set(template, m);
   return m;

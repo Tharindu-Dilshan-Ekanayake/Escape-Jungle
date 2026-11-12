@@ -12,7 +12,7 @@ import {
   Object3D,
   SRGBColorSpace,
 } from "three";
-import { LOBBY_LAYOUT } from "@shared";
+import { CHAPTERS, LOBBY_LAYOUT } from "@shared";
 import { useLobbyStore, type PadView } from "../../store/lobbyStore";
 import { PAD_SIGN, padSignSpot } from "./padSigns";
 
@@ -47,14 +47,14 @@ const GLOW_COLOR: Record<SignState["status"], Color> = {
   SOLO: new Color("#7fd8ff"),
 };
 
-function stateOf(pad: PadView | undefined, online: boolean, nameOf: (id: string) => string): SignState {
+function stateOf(pad: PadView | undefined, size: number, online: boolean, nameOf: (id: string) => string): SignState {
   const count = pad?.members.length ?? 0;
-  const max = pad?.maxPlayers ?? 4;
+  const max = pad?.maxPlayers ?? size;
   const chapter = pad?.chapter ?? 1;
   if (!online) return { title: "Solo expedition", status: "SOLO", count: 0, max: 1, countdown: -1, chapter };
   const countdown = pad?.countdown ?? -1;
   const host = pad?.host ? nameOf(pad.host) : "";
-  const title = count > 0 && host ? host : "Step in to explore!";
+  const title = count > 0 && host ? host : max === 1 ? "Solo expedition" : `${max}-player crew`;
   const status = countdown >= 0 ? "STARTING" : count >= max ? "FULL" : count > 0 ? "BOARDING" : "OPEN";
   return { title, status, count, max, countdown, chapter };
 }
@@ -122,7 +122,8 @@ function drawSign(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: Sign
   pill(ctx, cx + CELL_W / 2 - 105, cy + 112, 210, 46, STATUS_COLOR[s.status], statusText, s.status === "OPEN" ? "#3a2412" : "#ffffff");
   // Players + chapter pills.
   pill(ctx, cx + 70, cy + 176, 160, 48, "#fff4d6", `👥 ${s.count}/${s.max}`, "#5a3a7a");
-  pill(ctx, cx + CELL_W - 230, cy + 176, 160, 48, "#4cc12e", `🗺 Ch ${s.chapter}`, "#ffffff");
+  const map = CHAPTERS.find((c) => c.n === s.chapter)?.name.replace(/^The /, "") ?? `Ch ${s.chapter}`;
+  pill(ctx, cx + CELL_W - 250, cy + 176, 200, 48, "#4cc12e", `🗺 ${map}`, "#ffffff");
 }
 
 /** Glow column geometry: four open side walls, bright at the bottom, fading out at the top (vertex alpha). */
@@ -228,7 +229,7 @@ export function PadSigns() {
     const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? "Explorer";
     const draw = () => {
       const ctx = r.canvas.getContext("2d")!;
-      r.states = LOBBY_LAYOUT.pads.map((_, i) => stateOf(pads[i], online, nameOf));
+      r.states = LOBBY_LAYOUT.pads.map((spot, i) => stateOf(pads[i], spot.size, online, nameOf));
       r.states.forEach((st, i) => drawSign(ctx, (i % COLS) * CELL_W, Math.floor(i / COLS) * CELL_H, st));
       r.texture.needsUpdate = true;
       r.states.forEach((st, i) => r.columns.setColorAt(i, GLOW_COLOR[st.status]));

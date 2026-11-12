@@ -14,6 +14,7 @@ interface NetPlayer {
   look: string;
   tool: string;
   swing: number;
+  best: number;
   st: number;
 }
 interface NetPad {
@@ -64,7 +65,7 @@ export function syncState(state: NetState, me: string, onNewPlayer: (name: strin
   const seen = new Set<string>();
   state.players.forEach((p, id) => {
     seen.add(id);
-    players.push({ id, name: p.name, uid: p.uid, zone: p.zone, connected: p.connected });
+    players.push({ id, name: p.name, uid: p.uid, zone: p.zone, connected: p.connected, best: p.best ?? 0 });
     if (!known.has(id)) {
       known.add(id);
       if (id !== me) onNewPlayer(p.name);

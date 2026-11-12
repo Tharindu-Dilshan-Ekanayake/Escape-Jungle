@@ -3,16 +3,15 @@ import { HUD } from "../../config/hud";
 import { STATIONS } from "../../config/economy";
 import { buyNextTool, economy } from "../../game/economy/economy";
 import { useHud } from "../layout/hudLayout";
-import { BagCash, Hotbar, SaleAndShop, TopButtons, UpgradesButton, openTeamPanel } from "./HudCorners";
+import { Hotbar, SaleAndShop, StatusCard, TopButtons, UpgradesButton, openTeamPanel } from "./HudCorners";
 import { isBagFull } from "../../game/economy/economy";
-import { BaseJump, baseJumpEnabled } from "./BaseJump";
 import { escape } from "../../game/escape/escape";
 import { nearestGrinder } from "../../game/economy/StationSystem";
 import { activeZones, cutState } from "../../game/cutting/cutState";
 import { currentZoneIndex, progress } from "../../game/progress/progress";
 import { GATES, ZONES1 } from "../../config/zones1";
 import { RunTimer, RunComplete } from "./RunProgress";
-import { DayClock, FindPopup, NightVignette, WoodCounter } from "./NightLootHud";
+import { DayClock, FindPopup, NightVignette } from "./NightLootHud";
 import { Minimap } from "../map/Minimap";
 import { loot } from "../../game/loot/loot";
 import { anyFireLit, campfires } from "../../game/campfire/campfires";
@@ -51,6 +50,7 @@ function nightBanner(now: number): string {
 import { player } from "../../game/player/FirstPersonController";
 import { leaveRun } from "../../net/lobbyConnection";
 import { useUiStore } from "../../store/uiStore";
+import { useLobbyStore } from "../../store/lobbyStore";
 import { sfx } from "../../game/audio/sfx";
 import { ClearBar } from "./ClearBar";
 import { TutorialCard } from "./TutorialCard";
@@ -71,7 +71,14 @@ function Banner() {
       let urgent = false;
       const goal = currentZoneIndex();
       const last = progress.lastOpened;
-      if (isBagFull()) {
+      const aboard = escape.aboard;
+      if (aboard && !escape.active) {
+        text = escape.boardedMe
+          ? `Aboard! Waiting for ${aboard.waiting.join(", ")} (${aboard.n}/${aboard.total})`
+          : `${aboard.n}/${aboard.total} aboard the helicopter: get to the Plane Wreck!`;
+        ico = "🚁";
+        urgent = true;
+      } else if (isBagFull()) {
         text = "Bag full! Follow the arrow to the Grinder";
         ico = "🎒";
         urgent = true;
@@ -89,8 +96,9 @@ function Banner() {
         text = next ? `Area cleared! The gate is open: on to ${next.name}` : "Area cleared! Head to the plane wreck!";
         ico = "🚪";
       } else if (goal >= 0) {
+        // Phones: the clear bar at the top already says this.
         const zn = activeZones.list[goal];
-        if (zn) text = `Clear ${Math.round(GATES.clearToOpen * 100)}% of ${zn.zone.name} to open the gate · ${Math.floor(zn.field.clearRatio * 100)}%`;
+        if (zn && useHud.getState().mode === "desktop") text = `Clear ${Math.round(GATES.clearToOpen * 100)}% of ${zn.zone.name} to open the gate · ${Math.floor(zn.field.clearRatio * 100)}%`;
         ico = "🌿";
       } else if (!progress.finished) {
         text = "Every gate is open! Find the plane wreck: the rescue chopper is waiting there";
@@ -160,7 +168,18 @@ function GrinderArrow() {
   );
 }
 
-/** Jungle HUD: clear bar, banner, bag/cash, hotbar, upgrades, settings + leave (L; never P). */
+/** Connection dropped: we keep playing and the game reconnects (the seat in the run is held for a minute). */
+function Reconnecting() {
+  const lost = useLobbyStore((s) => s.status === "connecting");
+  if (!lost) return null;
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-[44%] z-40 w-max max-w-[90vw] -translate-x-1/2 animate-pulse rounded-full border-2 border-[#ffd23f] bg-black/75 px-4 py-1.5 font-lobby text-sm font-bold text-white shadow-lg">
+      📶 Connection lost · reconnecting...
+    </div>
+  );
+}
+
+/** Jungle HUD: clear bar, banner, status card, hotbar, upgrades, settings (with Leave; L; never P). */
 export function RunHud() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -177,6 +196,7 @@ export function RunHud() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const desktop = useHud((s) => s.mode === "desktop");
   // While the helicopter flies you out: no HUD, just letterbox bars (then the results card).
   const [escaping, setEscaping] = useState(false);
   useEffect(() => {
@@ -199,9 +219,9 @@ export function RunHud() {
       <Banner />
       <TutorialCard />
       <GrinderArrow />
-      <BagCash />
+      <StatusCard />
       <Hotbar />
-      <UpgradesButton />
+      {desktop && <UpgradesButton />}
       <SaleAndShop />
       <RunTimer />
       <RunComplete />
@@ -214,10 +234,9 @@ export function RunHud() {
       <AdventureCelebration />
       <Minimap />
       <DayClock />
-      <WoodCounter />
       <FindPopup />
       <TopButtons />
-      {baseJumpEnabled() && <BaseJump />}
+      <Reconnecting />
     </>
   );
 }

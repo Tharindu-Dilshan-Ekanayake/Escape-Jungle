@@ -13,7 +13,8 @@ import { pos, useHud } from "../layout/hudLayout";
  */
 export function Minimap() {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const touch = DEVICE.prefersTouchControls;
+  // The M key hint only makes sense on a desktop-sized layout.
+  const showKey = useHud((s) => s.mode === "desktop") && !DEVICE.prefersTouchControls;
   const M = useHud((s) => s.mini);
   const size = M.size;
 
@@ -64,7 +65,7 @@ export function Minimap() {
       <div className="relative rounded-full border-2 border-[#3a2412]" style={{ width: size, height: size }}>
         <canvas ref={canvas} className="block rounded-full" style={{ width: size, height: size }} />
         <span className="absolute left-1/2 top-0.5 -translate-x-1/2 font-typewriter text-outline text-sm text-[#ffd23f]">N</span>
-        {!touch && <span className="absolute -bottom-2 -left-2 rounded bg-white/90 px-1.5 text-xs font-bold text-black">M</span>}
+        {showKey && <span className="absolute -bottom-2 -left-2 rounded bg-white/90 px-1.5 text-xs font-bold text-black">M</span>}
       </div>
     </button>
   );

@@ -70,7 +70,7 @@ export function buildLobby(): LobbyBuild {
   for (const rowZ of [...new Set(LOBBY_LAYOUT.pads.map((p) => p.z))]) boardwalk(b, firstX, lastX, rowZ);
   LOBBY_LAYOUT.pads.forEach((p, i) => {
     b.push([p.x, 0, p.z]);
-    expeditionPad(b, LOBBY_LAYOUT.padSize);
+    expeditionPad(b, LOBBY_LAYOUT.padSize, p.size);
     b.pop();
     padSignFrame(b, colliders, i);
   });

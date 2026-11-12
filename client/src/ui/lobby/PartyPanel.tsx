@@ -1,20 +1,22 @@
-import { LOBBY_LAYOUT, LOBBY_RULES, ROOM_LIMITS } from "@shared";
+import { useEffect, useState } from "react";
+import { CHAPTERS, LOBBY_LAYOUT, LOBBY_RULES, chapterUnlocked } from "@shared";
 import { myPadIndex, useLobbyStore } from "../../store/lobbyStore";
 import { useGameStore } from "../../store/gameStore";
-import { sendPadStart, sendPartySize } from "../../net/lobbyConnection";
+import { sendPadChapter } from "../../net/lobbyConnection";
 import { player } from "../../game/player/FirstPersonController";
 import { ChapterArt } from "./ChapterArt";
 
-/** Our own chapters (chapter 1 playable; the next ones unlock as they are built). */
-const CHAPTERS = [
-  { n: 1, name: "The Overgrowth", tag: "Tall grass · 6 areas · find the plane" },
-  { n: 2, name: "Misty Gorge", tag: "Bamboo · fog · rope bridges" },
-  { n: 3, name: "Sunken Temple", tag: "Water · ruins · traps" },
-];
+/** Card captions (names and which maps are built come from the shared CHAPTERS list). */
+const TAGS: Record<number, string> = {
+  1: "Tall grass · 6 areas · find the plane",
+  2: "Bamboo · fog · rope bridges",
+  3: "Water · ruins · traps",
+};
 
 const wood = "bg-[linear-gradient(180deg,#b9824a,#8a5a34)]";
+const plaque = "rounded-xl border-4 border-[#5a3418] bg-[#fff4d6] p-2 text-[#3a2a1a]";
 
-/** Step off the pad (back toward the plaza): the server sees you leave the party. */
+/** Step off the pad (back toward the plaza): the server sees you leave the crew. */
 function leavePad(padIndex: number) {
   const p = LOBBY_LAYOUT.pads[padIndex];
   if (!p) return;
@@ -22,10 +24,11 @@ function leavePad(padIndex: number) {
 }
 
 /**
- * Expedition start popup while standing on a pad: a wooden panel with a
- * hanging title plank, polaroid chapter cards, a crew stepper, a status box
- * and a big START button; X / LEAVE step you off the pad. Host picks the crew
- * size and starts; members wait; offline it starts a solo run.
+ * Panel while standing on an expedition pad. Every pad has a fixed crew size
+ * (1-4); once it is full the countdown runs by itself and the crew leaves for
+ * the jungle. The first one on the pad picks the map (only maps everyone has
+ * unlocked: you unlock a map by escaping the one before it). Offline: a solo
+ * run after the same countdown.
  */
 export function PartyPanel() {
   const status = useLobbyStore((s) => s.status);
@@ -34,17 +37,35 @@ export function PartyPanel() {
   const pad = useLobbyStore((s) => s.pads.find((p) => p.index === padIndex));
   const players = useLobbyStore((s) => s.players);
   const online = status === "online";
+  const size = online ? (pad?.maxPlayers ?? LOBBY_LAYOUT.pads[padIndex]?.size ?? 1) : 1;
+  const members = online ? (pad?.members ?? []) : [me];
   const isHost = !online || pad?.host === me;
-  const counting = online && pad !== undefined && pad.countdown >= 0;
-  const aboard = online ? (pad?.members.length ?? 1) : 1;
-  const crew = online ? (pad?.maxPlayers ?? 4) : 1;
-  const names = (pad?.members ?? []).map((id) => players.find((p) => p.id === id)?.name ?? "...");
-  const unlocked = (n: number) => (LOBBY_RULES.unlockedChapters as readonly number[]).includes(n);
+  const myBest = players.find((p) => p.id === me)?.best ?? 0;
+  const bestOf = (id: string) => players.find((p) => p.id === id)?.best ?? 0;
 
-  const startSolo = () => useGameStore.getState().enterRun({ runId: `solo-${Date.now()}`, chapter: 1, members: ["You"], solo: true });
-  const setCrew = (n: number) => {
-    if (!online || !isHost || counting || !pad) return;
-    sendPartySize(Math.max(pad.members.length, Math.min(ROOM_LIMITS.partyMax, n)));
+  // Offline there is no server: count down locally, then a solo run.
+  const [localChapter, setLocalChapter] = useState(1);
+  const [localLeft, setLocalLeft] = useState<number>(LOBBY_RULES.fullCountdown);
+  useEffect(() => {
+    if (online || padIndex < 0) return;
+    setLocalLeft(LOBBY_RULES.fullCountdown);
+    const id = window.setInterval(() => setLocalLeft((n) => n - 1), 1000);
+    return () => window.clearInterval(id);
+  }, [online, padIndex]);
+  const chapter = online ? (pad?.chapter ?? 1) : localChapter;
+  useEffect(() => {
+    if (!online && padIndex >= 0 && localLeft <= 0) {
+      useGameStore.getState().enterRun({ runId: `solo-${Date.now()}`, chapter, members: ["You"], solo: true });
+    }
+  }, [online, padIndex, localLeft, chapter]);
+
+  const countdown = online ? (pad?.countdown ?? -1) : Math.max(0, localLeft);
+  const counting = countdown >= 0;
+  const missing = size - members.length;
+  const pick = (n: number) => {
+    if (!isHost) return;
+    if (online) sendPadChapter(n);
+    else setLocalChapter(n);
   };
   const leave = () => leavePad(padIndex);
 
@@ -64,27 +85,38 @@ export function PartyPanel() {
         <button type="button" onClick={leave} aria-label="Close" className="absolute -right-3 -top-3 grid h-12 w-12 place-items-center rounded-full border-4 border-white bg-[#e8503a] text-2xl font-bold text-white shadow-lg active:scale-95">
           ✕
         </button>
-        <p className="text-outline mb-3 text-center text-base font-bold text-white sm:text-lg">Pick your jungle and gather your crew!</p>
+        <p className="text-outline mb-3 text-center text-base font-bold text-white sm:text-lg">
+          {online ? (size === 1 ? "Solo pad" : `${size}-player pad`) : "Offline: solo run"} · {isHost ? "pick your jungle!" : "the first explorer picks the jungle"}
+        </p>
 
-        {/* Polaroid chapter cards. */}
+        {/* Polaroid map cards. */}
         <div className="mb-3 grid grid-cols-3 gap-2 sm:gap-3">
           {CHAPTERS.map((c, i) => {
-            const open = unlocked(c.n);
-            const picked = c.n === 1;
+            const prev = CHAPTERS.find((x) => x.n === c.n - 1);
+            // Online the map must be open for everyone on the pad; offline only chapter 1 (no saved unlocks).
+            const open = online ? members.every((id) => chapterUnlocked(c.n, bestOf(id))) : c.n === 1;
+            const mine = online ? chapterUnlocked(c.n, myBest) : c.n === 1;
+            const can = open && c.playable && isHost;
+            const picked = c.n === chapter;
             return (
-              <div
+              <button
+                type="button"
                 key={c.n}
-                className={`relative rounded-xl bg-[#fff8e6] p-1.5 pb-2 shadow-md sm:p-2 ${picked ? "ring-4 ring-[#4cc12e]" : ""}`}
+                disabled={!can}
+                onClick={() => pick(c.n)}
+                className={`relative rounded-xl bg-[#fff8e6] p-1.5 pb-2 text-left shadow-md transition sm:p-2 ${picked ? "ring-4 ring-[#4cc12e]" : can ? "hover:-translate-y-0.5" : ""}`}
                 style={{ transform: `rotate(${(i - 1) * 1.2}deg)` }}
               >
                 <div className="absolute -top-2 left-1/2 h-4 w-14 -translate-x-1/2 rotate-[-3deg] bg-[#f3e2a8]/80" />
-                <div className={`relative aspect-[16/10] overflow-hidden rounded-md ${open ? "" : "grayscale"}`}>
+                <div className={`relative aspect-[16/10] overflow-hidden rounded-md ${open && c.playable ? "" : "grayscale"}`}>
                   <ChapterArt n={c.n} />
-                  {!open && (
-                    <div className="absolute inset-0 grid place-items-center bg-black/35 text-center text-white">
+                  {(!open || !c.playable) && (
+                    <div className="absolute inset-0 grid place-items-center bg-black/40 px-1 text-center text-white">
                       <div>
-                        <div className="text-2xl sm:text-3xl">🔒</div>
-                        <div className="text-outline text-[10px] font-bold sm:text-xs">Escape chapter {c.n - 1} first</div>
+                        <div className="text-2xl sm:text-3xl">{!mine ? "🔒" : !c.playable ? "🚧" : "🔒"}</div>
+                        <div className="text-outline text-[10px] font-bold sm:text-xs">
+                          {!mine ? `Escape ${prev?.name ?? "the last map"} first` : !c.playable ? "Coming soon" : "Locked for your crew"}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -93,53 +125,45 @@ export function PartyPanel() {
                   )}
                 </div>
                 <div className="mt-1 text-center text-sm font-bold text-[#3a2a1a] sm:text-lg">{c.name}</div>
-                <div className="hidden text-center text-[11px] text-[#6b5a44] sm:block">{c.tag}</div>
-              </div>
+                <div className="hidden text-center text-[11px] text-[#6b5a44] sm:block">{TAGS[c.n]}</div>
+              </button>
             );
           })}
         </div>
 
-        {/* Crew stepper · status · start. */}
-        <div className="grid grid-cols-[1fr_1fr] gap-2 sm:grid-cols-[1fr_1.1fr_1.5fr] sm:gap-3">
-          <div className="rounded-xl border-4 border-[#5a3418] bg-[#fff4d6] p-2 text-[#3a2a1a]">
+        {/* Crew slots · countdown. */}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.2fr_1fr] sm:gap-3">
+          <div className={plaque}>
             <div className="text-sm font-bold sm:text-base">
-              CREW <span className="text-xs font-semibold">({aboard} aboard)</span>
+              CREW <span className="text-xs font-semibold">({members.length} of {size})</span>
             </div>
-            <div className="mt-1 flex items-center justify-center gap-3">
-              <button type="button" onClick={() => setCrew(crew - 1)} disabled={!online || !isHost || counting || crew <= aboard} className="grid h-9 w-9 place-items-center rounded-full border-2 border-[#5a3418] bg-[#f0dfb4] text-xl font-bold disabled:opacity-40">
-                −
-              </button>
-              <span className="w-6 text-center text-3xl font-bold">{crew}</span>
-              <button type="button" onClick={() => setCrew(crew + 1)} disabled={!online || !isHost || counting || crew >= ROOM_LIMITS.partyMax} className="grid h-9 w-9 place-items-center rounded-full border-2 border-[#5a3418] bg-[#f0dfb4] text-xl font-bold disabled:opacity-40">
-                +
-              </button>
-            </div>
-          </div>
-          <div className="rounded-xl border-4 border-[#5a3418] bg-[#fff4d6] p-2 text-[#3a2a1a]">
-            <div className="text-sm font-bold sm:text-base">{online ? "YOUR CREW" : "SOLO RUN"}</div>
-            <div className="truncate text-xs">{online ? names.join(", ") || "Just you" : "Play offline on your own"}</div>
-            <div className="mt-1 text-xs font-semibold text-[#6b5a44]">
-              {counting ? (
-                <span className="text-sm font-bold text-[#e8533a]">Starting in {pad?.countdown}s...</span>
-              ) : online ? (
-                aboard < crew ? `Waiting for crew · ${aboard}/${crew}` : "Crew ready!"
-              ) : (
-                "Ready when you are"
-              )}
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {Array.from({ length: size }, (_, k) => {
+                const id = members[k];
+                const name = !online ? "You" : id ? (players.find((p) => p.id === id)?.name ?? "...") : null;
+                return (
+                  <span key={k} className={`rounded-full border-2 px-2 py-0.5 text-xs font-bold sm:text-sm ${name ? "border-[#2f8a1f] bg-[#dff7cf] text-[#2a5a1a]" : "border-dashed border-[#b39a74] text-[#a08c6c]"}`}>
+                    {name ? `${id === me || !online ? "⭐ " : ""}${name}` : "waiting..."}
+                  </span>
+                );
+              })}
             </div>
           </div>
-          <button
-            type="button"
-            disabled={counting || !isHost}
-            onClick={online ? sendPadStart : startSolo}
-            className="col-span-2 flex items-center justify-center gap-3 rounded-xl border-4 border-[#2f6a1f] bg-gradient-to-b from-[#8af04a] to-[#3fae22] px-4 py-2 text-white shadow-lg active:translate-y-0.5 disabled:from-[#bdbdbd] disabled:to-[#8f8f8f] disabled:border-[#6f6f6f] sm:col-span-1"
-          >
-            <span className="text-left leading-none">
-              <span className="block text-sm font-bold sm:text-base">{counting ? "GET READY" : isHost ? "START THE" : "WAITING FOR"}</span>
-              <span className="text-outline block text-2xl font-bold sm:text-3xl">{counting ? `${pad?.countdown}...` : isHost ? "EXPEDITION!" : "THE HOST"}</span>
-            </span>
-            {isHost && !counting && <span className="text-3xl font-bold sm:text-4xl">→</span>}
-          </button>
+          <div className={`${plaque} flex flex-col items-center justify-center text-center ${counting ? "border-[#2f6a1f] bg-gradient-to-b from-[#c9f7a8] to-[#8ee05e]" : ""}`}>
+            {counting ? (
+              <>
+                <div className="text-sm font-bold sm:text-base">GET READY!</div>
+                <div className="text-outline text-4xl font-bold text-white sm:text-5xl">{countdown}</div>
+                <div className="text-xs font-semibold">Leaving for the jungle...</div>
+              </>
+            ) : (
+              <>
+                <div className="text-sm font-bold sm:text-base">WAITING FOR CREW</div>
+                <div className="text-3xl font-bold">{missing > 0 ? `+${missing}` : "✓"}</div>
+                <div className="text-xs font-semibold">{missing === 1 ? "1 more explorer" : `${missing} more explorers`} to step on</div>
+              </>
+            )}
+          </div>
         </div>
       </div>
       <button type="button" onClick={leave} className="mt-4 rounded-2xl border-4 border-[#8a2a1a] bg-gradient-to-b from-[#ff7a5a] to-[#d63a2f] px-8 py-1.5 text-xl font-bold text-white shadow-lg active:translate-y-0.5">

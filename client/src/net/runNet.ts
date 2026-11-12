@@ -1,5 +1,5 @@
 import type { Room } from "colyseus.js";
-import { RUN_MSG, RUN_RULES, type FoodItem, type GiftPayload, type GivePayload, type RunSyncPayload, type TreeState } from "@shared";
+import { RUN_MSG, RUN_RULES, type AdvState, type FoodItem, type GiftPayload, type GivePayload, type RunSyncPayload, type TreeState } from "@shared";
 
 /**
  * Client side of the jungle-run sync (server: server/src/rooms/RunSystem.ts).
@@ -43,6 +43,12 @@ export const runHandlers = {
   prize: null as Fn<[]>,
   gift: null as Fn<[GiftPayload]>,
   tree: null as Fn<[TreeState]>,
+  /** Who is aboard the rescue helicopter so far. */
+  boarding: null as Fn<[{ n: number; total: number; waiting: string[] }]>,
+  /** The whole crew is aboard: take off. */
+  depart: null as Fn<[]>,
+  /** A crew member changed a shared quest (the merged state; r = timed restart; by = their name). */
+  adv: null as Fn<[AdvState & { r?: boolean; by?: string }]>,
 };
 
 const syncListeners = new Set<(p: RunSyncPayload) => void>();
@@ -77,6 +83,9 @@ export function bindRunRoom(room: Room) {
   room.onMessage(RUN_MSG.prize, () => runHandlers.prize?.());
   room.onMessage(RUN_MSG.give, (m: GiftPayload) => runHandlers.gift?.(m));
   room.onMessage(RUN_MSG.tree, (m: TreeState) => runHandlers.tree?.(m));
+  room.onMessage(RUN_MSG.adv, (m: AdvState & { r?: boolean; by?: string }) => runHandlers.adv?.(m));
+  room.onMessage(RUN_MSG.boarding, (m: { n: number; total: number; waiting: string[] }) => runHandlers.boarding?.(m));
+  room.onMessage(RUN_MSG.depart, () => runHandlers.depart?.());
   room.onMessage(RUN_MSG.host, (m: { sid: string }) => {
     runNet.hostSid = m.sid;
   });
@@ -142,3 +151,5 @@ export const sendPrize = (sid: string) => send(RUN_MSG.prize, { sid });
 export const sendGive = (g: GivePayload) => send(RUN_MSG.give, g);
 export const sendChop = (t: number, dmg: number) => send(RUN_MSG.chop, { t, dmg });
 export const sendTakeLog = (t: number) => send(RUN_MSG.takeLog, { t });
+export const sendAdv = (st: AdvState & { r?: boolean }) => send(RUN_MSG.adv, st);
+export const sendBoard = () => send(RUN_MSG.board);

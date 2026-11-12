@@ -7,10 +7,12 @@
  * Without a server the lobby keeps working offline (solo runs).
  */
 import { Client, type Room } from "colyseus.js";
-import { LOBBY_RULES, MSG, ROOM_NAMES, type JoinOptions, type MovePayload, type RunMovePayload, type RunStartPayload } from "@shared";
+import { CLOSE_REPLACED, LOBBY_RULES, MSG, ROOM_NAMES, type JoinOptions, type MovePayload, type RunMovePayload, type RunStartPayload, RUN_MSG } from "@shared";
 import { BOXITY_HOSTING_ID, DEV_SERVER_WS } from "../config/platform";
 import { usePlatformStore } from "../store/platformStore";
 import { getAuthToken, guestNameForServer, getSDK, onChatBubble, playerInRoom, playerJoined, updateRoom } from "../platform/boxity";
+import { guestSaveKey } from "../platform/saveKey";
+import { saveNow } from "../game/save/runSave";
 import { useLobbyStore } from "../store/lobbyStore";
 import { useGameStore } from "../store/gameStore";
 import { player, setPendingSpawn } from "../game/player/FirstPersonController";
@@ -32,14 +34,51 @@ let room: Room | null = null;
 let started = false;
 let triedRoomId = false;
 
+/** Endpoint of the current room (a reconnect must go back to the same server). */
+let endpointUrl = "";
+
 async function resolveClient(): Promise<Client> {
   const sdk = getSDK();
   if (BOXITY_HOSTING_ID && sdk) {
     const { endpoint } = await sdk.net.resolveEndpoint(BOXITY_HOSTING_ID);
+    endpointUrl = endpoint;
     return new Client(endpoint);
   }
+  endpointUrl = DEV_SERVER_WS;
   return new Client(DEV_SERVER_WS);
 }
+
+/** The server holds a dropped player's seat (and run) this long; keep trying until just before. */
+const REJOIN_MS = (LOBBY_RULES.reconnectSeconds - 4) * 1000;
+const REJOIN_KEY = "ej_rejoin_v1";
+
+/** Remember how to get this seat back if the page reloads (this tab only). */
+function rememberSeat(r: Room) {
+  try {
+    sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ token: r.reconnectionToken, endpoint: endpointUrl, at: Date.now() }));
+  } catch {
+    /* storage blocked: a reload just starts fresh */
+  }
+}
+function forgetSeat() {
+  try {
+    sessionStorage.removeItem(REJOIN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+function savedSeat(): { token: string; endpoint: string; at: number } | null {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(REJOIN_KEY) ?? "null");
+    return s && typeof s.token === "string" && Date.now() - s.at < REJOIN_MS ? s : null;
+  } catch {
+    return null;
+  }
+}
+// Leaving the page: stamp the time so a quick reload (within the minute) can take the seat back.
+window.addEventListener("pagehide", () => {
+  if (room) rememberSeat(room);
+});
 
 /** Start once at boot; keeps the lobby connection alive for the whole session. */
 export function startLobbyConnection() {
@@ -81,7 +120,7 @@ async function reapplyIdentity() {
   const id = r.roomId;
   room = null;
   await r.leave(true).catch(() => {});
-  const options: JoinOptions = { token: getAuthToken(), guestName: guestNameForServer() };
+  const options: JoinOptions = { token: getAuthToken(), guestName: guestNameForServer(), saveKey: guestSaveKey() };
   const again = await client.joinById(id, options).catch(() => null);
   if (again) attach(again);
   else await connect();
@@ -89,12 +128,24 @@ async function reapplyIdentity() {
 
 async function connect() {
   useLobbyStore.setState({ status: "connecting" });
+  // Reloaded within the minute: take the same seat back (and with it our place in the run).
+  const seat = savedSeat();
+  if (seat) {
+    try {
+      endpointUrl = seat.endpoint;
+      client = new Client(seat.endpoint);
+      attach(await client.reconnect(seat.token));
+      return;
+    } catch {
+      forgetSeat();
+    }
+  }
   const deadline = Date.now() + RETRY_GIVE_UP_MS;
   let delay = RETRY_BASE_MS;
   for (;;) {
     try {
       client = await resolveClient();
-      const options: JoinOptions = { token: getAuthToken(), guestName: guestNameForServer() };
+      const options: JoinOptions = { token: getAuthToken(), guestName: guestNameForServer(), saveKey: guestSaveKey() };
       let r: Room | null = null;
       const roomId = new URLSearchParams(location.search).get("roomId");
       if (roomId && !triedRoomId) {
@@ -120,6 +171,10 @@ function attach(r: Room) {
   room = r;
   resetSync();
   bindRunRoom(r);
+  rememberSeat(r);
+  // Back after a drop while still in the jungle: ask for everything we missed.
+  const gs = useGameStore.getState();
+  if (gs.scene === "run" && gs.run && !gs.run.solo) r.send(RUN_MSG.hello);
   useLobbyStore.setState({ status: "online", roomId: r.roomId, me: r.sessionId });
   updateRoom(r.roomId);
 
@@ -137,26 +192,49 @@ function attach(r: Room) {
     if (rp) rp.emote = { id: m.id, start: performance.now() / 1000 };
   });
   r.send(MSG.look, { look: getLocalLook().look });
-  r.onMessage(MSG.runStart, (p: RunStartPayload) => useGameStore.getState().enterRun({ ...p, solo: false }));
+  r.onMessage(MSG.runStart, (p: RunStartPayload) => {
+    lastTool = ""; // the server cleared it for the new run: send ours with the next move
+    useGameStore.getState().enterRun({ ...p, solo: false });
+  });
   r.onLeave((code) => {
     if (room === r) room = null;
     unbindRunRoom(r);
     updateRoom("");
-    if (code === CONSENTED_CLOSE) return;
+    if (code === CONSENTED_CLOSE) {
+      forgetSeat();
+      return;
+    }
+    if (code === CLOSE_REPLACED) {
+      // We joined from another tab or device: this one steps aside.
+      forgetSeat();
+      if (useGameStore.getState().scene === "run") useGameStore.getState().leaveRun();
+      useLobbyStore.setState({ status: "offline", roomId: "", me: "", players: [], pads: [] });
+      return;
+    }
     void rejoin(r.reconnectionToken);
   });
 }
 
+/**
+ * Network trouble: keep trying to take the same seat back for (almost) the
+ * minute the server holds it, so we stay in our run. Too late: the run went on
+ * without us; back to the lobby (our progress was saved) and join fresh.
+ */
 async function rejoin(token: string) {
   useLobbyStore.setState({ status: "connecting" });
-  try {
-    if (client) {
+  const deadline = Date.now() + REJOIN_MS;
+  let delay = RETRY_BASE_MS;
+  while (client && Date.now() < deadline) {
+    try {
       attach(await client.reconnect(token));
       return;
+    } catch {
+      await new Promise((res) => setTimeout(res, delay));
+      delay = Math.min(delay * 2, 4000);
     }
-  } catch {
-    /* fall back to a fresh matchmaking join (new endpoint) */
   }
+  forgetSeat();
+  if (useGameStore.getState().scene === "run") useGameStore.getState().leaveRun();
   await connect();
 }
 
@@ -198,13 +276,11 @@ function sendMove() {
   room.send(MSG.move, { x: player.x, z: player.z, yaw, y: Math.round(player.y * 100) / 100, st: senderTime() } as RunMovePayload);
 }
 
-export function sendPartySize(maxPlayers: number) {
-  room?.send(MSG.padConfig, { maxPlayers });
+/** Host of a pad: the map the crew will play. */
+export function sendPadChapter(chapter: number) {
+  room?.send(MSG.padChapter, { chapter });
 }
 
-export function sendPadStart() {
-  room?.send(MSG.padStart);
-}
 
 /** PLAY button: online the server picks a pad; offline we just walk-teleport locally. */
 export function quickJoin(offlineTarget?: { x: number; z: number }) {
@@ -214,6 +290,7 @@ export function quickJoin(offlineTarget?: { x: number; z: number }) {
 
 /** Leave the jungle run and return to the lobby. */
 export function leaveRun() {
+  saveNow(); // last save first (same socket, so the server gets it before the leave)
   room?.send(MSG.leaveRun);
   useGameStore.getState().leaveRun();
 }

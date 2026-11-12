@@ -132,6 +132,8 @@ const TOOL_KEYS = Object.keys(METAL) as ToolKey[];
 const v3 = (p: V3) => new Vector3(p[0], p[1], p[2]);
 
 let heldTemplates: Record<ToolKey, Group> | null = null;
+/** Tool names before every tool got its own shape (older clients in the same room). */
+const LEGACY_TOOLS: Record<string, ToolKey> = { rustyMachete: "sickle", cleaver: "shears", kukri: "scythe", goldBlade: "axe", crystalBlade: "glaive", emberBlade: "grassCutter" };
 
 /** Third-person tools for other players' avatars (built once, cloned per avatar; Lambert, shared). */
 export function heldTool(key: string): Group | null {
@@ -149,8 +151,8 @@ export function heldTool(key: string): Group | null {
       heldTemplates[k] = g;
     }
   }
-  const t = heldTemplates[key as ToolKey];
-  return t ? t.clone() : null;
+  const t = heldTemplates[(LEGACY_TOOLS[key] ?? key) as ToolKey] ?? heldTemplates.sickle;
+  return t.clone();
 }
 
 export function buildToolRig(): ToolRig {

@@ -30,7 +30,19 @@ export const RUN_MSG = {
   prize: "run:prize",
   /** { to, kind, item?, n, back? } give food / firewood / cash to a party member (relayed as { from, name, ... }). */
   give: "run:give",
+  /** { p: PlayerSave } my own progress (every few seconds and when leaving). */
+  /** I boarded the rescue helicopter (it leaves when the whole crew is aboard). */
+  board: "run:board",
+  /** { i, s, p, g, r? } a quest changed (state, progress, items-got bitmask; r = timed quest restarted). Relayed as { i, s, p, g, r, by }. */
+  adv: "run:adv",
+  save: "run:save",
+  /** We escaped: the save is done with (the next expedition starts fresh). */
+  finished: "run:finished",
   // server -> client
+  /** { n, total, waiting: names } who is aboard the helicopter so far. */
+  boarding: "run:boarding",
+  /** Everyone is aboard: the helicopter takes off (every client plays the escape). */
+  depart: "run:depart",
   /** Full state for (re)joining clients. */
   sync: "run:sync",
   /** { z, c } cells someone else cut. */
@@ -78,6 +90,8 @@ export const RUN_RULES = {
   teleportCooldownMs: 4000,
   /** Firewood trees: ids 0..maxTrees-1, hits to fell, logs left in the pile, regrow time, chop rate cap, max damage per hit. */
   maxTrees: 48,
+  /** Quests per run (one per zone; spare room). */
+  maxAdventures: 16,
   treeHp: 6,
   treeLogs: 5,
   treeRegrowSeconds: 150,
@@ -122,6 +136,16 @@ export interface RunSyncPayload {
   host: string;
   /** Firewood trees touched so far. */
   trees: TreeState[];
+  /** Shared quests touched so far. */
+  adv: AdvState[];
+}
+
+/** One shared quest: state (0 new, 1 active, 2 ready to hand in, 3 done), progress, items-got bitmask. */
+export interface AdvState {
+  i: number;
+  s: number;
+  p: number;
+  g: number;
 }
 
 /** Client position update while in a run (extends the lobby move). */

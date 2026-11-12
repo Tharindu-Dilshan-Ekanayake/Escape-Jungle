@@ -1,9 +1,11 @@
 import type { Client } from "@colyseus/core";
-import { RUN_MSG, RUN_RULES, SHARE_KINDS, SHARE_LIMITS, isFoodItem, type FoodItem, type GiftPayload, type RunSyncPayload, type ShareKind, type TreeState } from "../shared/index.js";
+import { RUN_MSG, RUN_RULES, isFoodItem, type FoodItem, type RunSyncPayload, type TreeState } from "../shared/index.js";
+import { giftFrom, mergeQuest, tree, treeState } from "./runRules.js";
 
 /** Server-side state of one party run (kept in memory, sent only to its members). */
-interface Run {
+export interface Run {
   id: string;
+  chapter: number;
   startedAt: number;
   members: Set<string>;
   host: string;
@@ -15,6 +17,11 @@ interface Run {
   lastCut: Map<string, number>;
   trees: Map<number, { hp: number; pile: number; regrowAt: number }>;
   lastChop: Map<string, number>;
+  /** Shared quests by index. */
+  adv: Map<number, { s: number; p: number; g: number }>;
+  /** Members aboard the rescue helicopter; it leaves once every member is in. */
+  boarded: Set<string>;
+  departed: boolean;
 }
 
 type Send = (sid: string, type: string, msg: unknown) => void;
@@ -27,11 +34,15 @@ type Send = (sid: string, type: string, msg: unknown) => void;
 export class RunSystem {
   private runs = new Map<string, Run>();
 
-  constructor(private send: Send) {}
+  constructor(
+    private send: Send,
+    private nameOf: (sid: string) => string = () => "?",
+  ) {}
 
-  create(id: string, members: string[]) {
+  create(id: string, members: string[], chapter: number) {
     this.runs.set(id, {
       id,
+      chapter,
       startedAt: Date.now(),
       members: new Set(members),
       host: members[0] ?? "",
@@ -43,7 +54,15 @@ export class RunSystem {
       lastCut: new Map(),
       trees: new Map(),
       lastChop: new Map(),
+      adv: new Map(),
+      boarded: new Set(),
+      departed: false,
     });
+  }
+
+  /** The live state of a run (for saving and restoring it). */
+  get(id: string): Run | undefined {
+    return this.runs.get(id);
   }
 
   /** A member left the run (back to lobby or disconnected for good). */
@@ -53,6 +72,7 @@ export class RunSystem {
     run.members.delete(sid);
     run.lastCut.delete(sid);
     run.lastChop.delete(sid);
+    run.boarded.delete(sid);
     if (!run.members.size) {
       this.runs.delete(id);
       return;
@@ -61,6 +81,37 @@ export class RunSystem {
       run.host = run.members.values().next().value ?? "";
       this.toAll(run, RUN_MSG.host, { sid: run.host });
     }
+    // The crew got smaller: maybe everyone left is already aboard.
+    this.checkDepart(run);
+  }
+
+  /** A member dropped (may come back): a connected teammate takes over the animals meanwhile. */
+  handOffHost(id: string, sid: string, connected: (sid: string) => boolean) {
+    const run = this.runs.get(id);
+    if (!run || run.host !== sid) return;
+    const next = [...run.members].find((m) => m !== sid && connected(m));
+    if (!next) return;
+    run.host = next;
+    this.toAll(run, RUN_MSG.host, { sid: next });
+  }
+
+  /** Boarding the helicopter: it leaves only when the whole crew (whoever is still in the run) is aboard. */
+  board(id: string, client: Client) {
+    const run = this.runs.get(id);
+    if (!run || run.departed || !run.members.has(client.sessionId)) return;
+    run.boarded.add(client.sessionId);
+    this.checkDepart(run);
+  }
+
+  private checkDepart(run: Run) {
+    if (run.departed || !run.boarded.size) return;
+    const waiting = [...run.members].filter((m) => !run.boarded.has(m));
+    if (!waiting.length) {
+      run.departed = true;
+      this.toAll(run, RUN_MSG.depart, {});
+      return;
+    }
+    this.toAll(run, RUN_MSG.boarding, { n: run.boarded.size, total: run.members.size, waiting: waiting.map(this.nameOf) });
   }
 
   private toAll(run: Run, type: string, msg: unknown, except?: string) {
@@ -78,9 +129,14 @@ export class RunSystem {
       fires: run.fires.map((t) => Math.max(0, (t - now) / 1000)),
       store: Object.fromEntries(run.store),
       host: run.host,
-      trees: [...run.trees.keys()].map((t) => this.treeState(run, t, now)),
+      trees: [...run.trees.keys()].map((t) => treeState(run, t, now)),
+      adv: [...run.adv].map(([i, a]) => ({ i, ...a })),
     };
     client.send(RUN_MSG.sync, payload);
+    if (run.boarded.size && !run.departed) {
+      const waiting = [...run.members].filter((m) => !run.boarded.has(m));
+      client.send(RUN_MSG.boarding, { n: run.boarded.size, total: run.members.size, waiting: waiting.map(this.nameOf) });
+    }
   }
 
   cut(id: string, client: Client, msg: { z?: unknown; c?: unknown }) {
@@ -118,18 +174,6 @@ export class RunSystem {
     this.toAll(run, RUN_MSG.picked, { i, sid }, sid);
   }
 
-  /** A firewood tree, regrown if its time has come. */
-  private tree(run: Run, t: number, now: number) {
-    let tr = run.trees.get(t);
-    if (!tr) run.trees.set(t, (tr = { hp: RUN_RULES.treeHp, pile: 0, regrowAt: 0 }));
-    if (tr.hp <= 0 && now >= tr.regrowAt) tr.hp = RUN_RULES.treeHp;
-    return tr;
-  }
-
-  private treeState(run: Run, t: number, now: number): TreeState {
-    const tr = this.tree(run, t, now);
-    return { t, hp: tr.hp, pile: tr.pile, regrow: tr.hp > 0 ? 0 : Math.max(0, (tr.regrowAt - now) / 1000) };
-  }
 
   /** Anyone's hits add up; the tree falls into a pile of logs everyone can take. */
   chop(id: string, client: Client, msg: { t?: unknown; dmg?: unknown }) {
@@ -141,7 +185,7 @@ export class RunSystem {
     const now = Date.now();
     if (now - (run.lastChop.get(sid) ?? 0) < 1000 / RUN_RULES.chopHz) return;
     run.lastChop.set(sid, now);
-    const tr = this.tree(run, t, now);
+    const tr = tree(run, t, now);
     if (tr.hp <= 0) return;
     const dmg = Math.min(RUN_RULES.maxChopDmg, Math.max(1, Math.round(Number(msg?.dmg) || 1)));
     tr.hp = Math.max(0, tr.hp - dmg);
@@ -149,7 +193,7 @@ export class RunSystem {
       tr.pile += RUN_RULES.treeLogs;
       tr.regrowAt = now + RUN_RULES.treeRegrowSeconds * 1000;
     }
-    this.toAll(run, RUN_MSG.tree, { ...this.treeState(run, t, now), by: sid });
+    this.toAll(run, RUN_MSG.tree, { ...treeState(run, t, now), by: sid });
   }
 
   takeLog(id: string, client: Client, msg: { t?: unknown }) {
@@ -159,10 +203,10 @@ export class RunSystem {
     const t = Number(msg?.t);
     if (!Number.isInteger(t) || t < 0 || t >= RUN_RULES.maxTrees) return;
     const now = Date.now();
-    const tr = this.tree(run, t, now);
+    const tr = tree(run, t, now);
     if (tr.pile <= 0) return;
     tr.pile--;
-    this.toAll(run, RUN_MSG.tree, { ...this.treeState(run, t, now), by: sid, took: true });
+    this.toAll(run, RUN_MSG.tree, { ...treeState(run, t, now), by: sid, took: true });
   }
 
   fuel(id: string, client: Client, msg: { f?: unknown }) {
@@ -196,6 +240,22 @@ export class RunSystem {
     this.toAll(run, RUN_MSG.storeState, { counts: Object.fromEntries(run.store) });
   }
 
+  /**
+   * Shared quests: one crew member talking to a quest giver, finding an item or
+   * handing in counts for everyone. States only move forward, items add up;
+   * a restarted timed quest (r) is the one way back.
+   */
+  adv(id: string, client: Client, msg: { i?: unknown; s?: unknown; p?: unknown; g?: unknown; r?: unknown }, name: string) {
+    const run = this.runs.get(id);
+    if (!run || !run.members.has(client.sessionId)) return;
+    const m = mergeQuest(run.adv.get(Number(msg?.i)) ?? { s: 0, p: 0, g: 0 }, msg);
+    if (!m) return;
+    run.adv.set(m.i, m.next);
+    // Everyone (the sender too) gets the merged truth.
+    this.toAll(run, RUN_MSG.adv, { i: m.i, ...m.next, r: m.reset, by: name });
+  }
+
+
   /** Host -> everyone else: animal snapshot. */
   animals(id: string, client: Client, msg: unknown) {
     const run = this.runs.get(id);
@@ -217,17 +277,10 @@ export class RunSystem {
   /** Player -> party member: food, firewood or cash (amounts bounded; both must be in this run). */
   give(id: string, client: Client, msg: { to?: unknown; kind?: unknown; item?: unknown; n?: unknown; back?: unknown }, name: string) {
     const run = this.runs.get(id);
-    const from = client.sessionId;
-    if (!run || !run.members.has(from) || typeof msg?.to !== "string" || msg.to === from || !run.members.has(msg.to)) return;
-    if (!(SHARE_KINDS as readonly string[]).includes(String(msg.kind))) return;
-    const kind = msg.kind as ShareKind;
-    const n = Number(msg.n);
-    if (!Number.isFinite(n) || n <= 0 || n > SHARE_LIMITS[kind]) return;
-    if (kind === "food" && !isFoodItem(msg.item)) return;
-    const gift: GiftPayload = { from, name, kind, n: kind === "cash" ? Math.round(n * 100) / 100 : Math.floor(n), back: msg.back === true };
-    if (kind === "food") gift.item = msg.item as FoodItem;
-    this.send(msg.to, RUN_MSG.give, gift);
+    const gift = run ? giftFrom(msg, client.sessionId, name, run.members) : null;
+    if (gift) this.send(msg.to as string, RUN_MSG.give, gift);
   }
+
 
   /** Host -> one player: bite damage or meat reward. */
   toPlayer(id: string, client: Client, type: typeof RUN_MSG.bite | typeof RUN_MSG.meat | typeof RUN_MSG.prize, msg: { sid?: unknown; dmg?: unknown; n?: unknown }) {

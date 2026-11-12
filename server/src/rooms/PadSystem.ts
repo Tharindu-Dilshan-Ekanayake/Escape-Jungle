@@ -1,29 +1,26 @@
-import { LOBBY_LAYOUT, LOBBY_RULES, ROOM_LIMITS, padAt } from "../shared/index.js";
+import { LOBBY_LAYOUT, LOBBY_RULES, chapterPlayable, chapterUnlocked, padAt } from "../shared/index.js";
 import { Pad, type WorldState } from "./schema.js";
 
-interface PadTimer {
-  /** Seconds left (float); mirrored as whole seconds into Pad.countdown. */
-  left: number;
-  /** True when the host pressed START (survives members leaving). */
-  byHost: boolean;
-}
-
 /**
- * Authoritative pad occupancy: players standing on a pad join its party
- * (first one hosts). A full pad, or the host's START, runs a countdown;
- * at zero the party leaves for the jungle (onStart).
+ * Authoritative pad occupancy. Every pad has a fixed crew size (1, 2, 3 or 4,
+ * painted on it). Players standing on a pad join its crew (first one hosts and
+ * picks the map); a full pad counts down on its own and at zero the crew leaves
+ * for the jungle (onStart). Someone stepping off cancels the countdown.
  */
 export class PadSystem {
-  private timers = new Map<number, PadTimer>();
+  /** Seconds left per counting pad (mirrored as whole seconds into Pad.countdown). */
+  private timers = new Map<number, number>();
 
   constructor(
     private state: WorldState,
     private onStart: (pad: Pad) => void,
+    /** Highest chapter a player escaped (0 = none yet): decides which maps they may pick. */
+    private bestOf: (sessionId: string) => number,
   ) {
-    LOBBY_LAYOUT.pads.forEach((_, index) => {
+    LOBBY_LAYOUT.pads.forEach((spot, index) => {
       const pad = new Pad();
       pad.index = index;
-      pad.maxPlayers = LOBBY_RULES.defaultPartySize;
+      pad.maxPlayers = spot.size;
       state.pads.push(pad);
     });
   }
@@ -32,7 +29,7 @@ export class PadSystem {
     return this.state.pads.find((p) => p.members.includes(sessionId));
   }
 
-  /** Re-evaluate every lobby player's pad from their position. */
+  /** Re-evaluate every lobby player's pad from their position, then run the countdowns. */
   tick(dt: number) {
     this.state.players.forEach((pl, id) => {
       const current = this.padOf(id);
@@ -43,20 +40,21 @@ export class PadSystem {
     });
 
     for (const pad of this.state.pads) {
-      const timer = this.timers.get(pad.index);
-      const full = pad.members.length >= pad.maxPlayers && pad.members.length > 0;
-      if (!timer) {
-        if (full) this.startTimer(pad, LOBBY_RULES.fullCountdown, false);
+      const full = pad.members.length > 0 && pad.members.length >= pad.maxPlayers;
+      let left = this.timers.get(pad.index);
+      if (left === undefined) {
+        if (full) this.startTimer(pad);
         continue;
       }
-      if (pad.members.length === 0 || (!timer.byHost && !full)) {
+      if (!full) {
         this.cancel(pad);
         continue;
       }
-      timer.left -= dt;
-      const whole = Math.max(0, Math.ceil(timer.left));
+      left -= dt;
+      this.timers.set(pad.index, left);
+      const whole = Math.max(0, Math.ceil(left));
       if (pad.countdown !== whole) pad.countdown = whole;
-      if (timer.left <= 0) {
+      if (left <= 0) {
         this.timers.delete(pad.index);
         this.onStart(pad);
         this.reset(pad);
@@ -64,29 +62,23 @@ export class PadSystem {
     }
   }
 
-  setPartySize(sessionId: string, size: number) {
+  /** The host picks the map: it must be built and unlocked for everyone on the pad. */
+  setChapter(sessionId: string, chapter: unknown) {
     const pad = this.padOf(sessionId);
-    if (!pad || pad.host !== sessionId) return;
-    const wanted = Math.round(Number(size));
-    if (!Number.isFinite(wanted)) return;
-    pad.maxPlayers = Math.max(pad.members.length, Math.min(ROOM_LIMITS.partyMax, Math.max(1, wanted)));
+    const n = Number(chapter);
+    if (!pad || pad.host !== sessionId || !Number.isInteger(n) || !chapterPlayable(n)) return;
+    if (!pad.members.every((id) => chapterUnlocked(n, this.bestOf(id)))) return;
+    pad.chapter = n;
   }
 
-  hostStart(sessionId: string) {
-    const pad = this.padOf(sessionId);
-    if (!pad || pad.host !== sessionId || this.timers.get(pad.index)?.byHost) return;
-    this.startTimer(pad, LOBBY_RULES.hostCountdown, true);
-  }
-
-  /** Nearest pad (to x, z) that can take one more player, or undefined. */
+  /** Nearest pad (to x, z) that can take one more player: crews waiting first, then a free solo pad. */
   findOpenPad(x: number, z: number): Pad | undefined {
     let best: Pad | undefined;
     let bestD = Infinity;
     for (const pad of this.state.pads) {
-      if (pad.members.length >= pad.maxPlayers) continue;
+      if (pad.members.length >= pad.maxPlayers || this.timers.has(pad.index)) continue;
       const p = LOBBY_LAYOUT.pads[pad.index];
-      // Prefer pads that already have a party waiting.
-      const d = Math.hypot(p.x - x, p.z - z) - (pad.members.length > 0 ? 100 : 0);
+      const d = Math.hypot(p.x - x, p.z - z) - (pad.members.length > 0 ? 200 : pad.maxPlayers === 1 ? 100 : 0);
       if (d < bestD) {
         bestD = d;
         best = pad;
@@ -104,6 +96,8 @@ export class PadSystem {
     if (pad.members.length >= pad.maxPlayers) return;
     pad.members.push(id);
     if (!pad.host) pad.host = id;
+    // A newcomer who hasn't unlocked the picked map: back to one everyone has.
+    if (!chapterUnlocked(pad.chapter, this.bestOf(id))) pad.chapter = 1;
   }
 
   private leave(pad: Pad, id: string) {
@@ -113,9 +107,9 @@ export class PadSystem {
     if (pad.members.length === 0) this.reset(pad);
   }
 
-  private startTimer(pad: Pad, seconds: number, byHost: boolean) {
-    this.timers.set(pad.index, { left: seconds, byHost });
-    pad.countdown = seconds;
+  private startTimer(pad: Pad) {
+    this.timers.set(pad.index, LOBBY_RULES.fullCountdown);
+    pad.countdown = LOBBY_RULES.fullCountdown;
   }
 
   private cancel(pad: Pad) {
@@ -128,6 +122,6 @@ export class PadSystem {
     pad.members.clear();
     pad.host = "";
     pad.countdown = -1;
-    pad.maxPlayers = LOBBY_RULES.defaultPartySize;
+    pad.chapter = 1;
   }
 }

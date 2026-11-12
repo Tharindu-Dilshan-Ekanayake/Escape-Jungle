@@ -1,3 +1,4 @@
+import type { PlayerSave } from "./save.js";
 /**
  * Shared between client (via the `@shared` path alias) and server.
  * Plain TS only: never import server-only or browser-only packages here.
@@ -15,10 +16,8 @@ export const MSG = {
   move: "move",
   /** Ask the server to put me on the nearest pad with space. */
   quickJoin: "quickJoin",
-  /** Host only: { maxPlayers } for the pad's party (1-4). */
-  padConfig: "padConfig",
-  /** Host only: start the countdown now. */
-  padStart: "padStart",
+  /** Host only: { chapter } the map this pad's crew will play (must be unlocked for everyone on it). */
+  padChapter: "padChapter",
   /** { look } my equipped Boxity avatar item ids (validated server-side). */
   look: "look",
   /** { id } play an emote (client -> server); { sid, id } relayed to others (server -> client). */
@@ -45,4 +44,6 @@ export interface RunStartPayload {
   runId: string;
   chapter: number;
   members: string[];
+  /** Your progress when this crew continues a saved expedition (null = fresh start). */
+  resume?: PlayerSave | null;
 }

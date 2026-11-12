@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { PlayerSave } from "@shared";
 import { useBootStore } from "./bootStore";
 
 export type SceneKey = "lobby" | "run";
@@ -9,6 +10,8 @@ export interface RunInfo {
   members: string[];
   /** Started offline (no server): purely local run. */
   solo: boolean;
+  /** Our progress when continuing a saved expedition (null = fresh start with the intro). */
+  resume?: PlayerSave | null;
 }
 
 interface GameState {

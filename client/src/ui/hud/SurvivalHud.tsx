@@ -75,8 +75,8 @@ export function SurvivalBars() {
         </div>
       )}
       <div
-        className={`pointer-events-none fixed z-30 flex gap-x-2 gap-y-1 rounded-xl bg-black/35 px-2 py-1 select-none ${stack ? "flex-col" : "left-1/2 -translate-x-1/2"}`}
-        style={pos(B)}
+        className={`pointer-events-none fixed z-30 flex gap-x-2 gap-y-1 rounded-xl bg-black/35 px-2 py-1 select-none ${stack ? "origin-bottom-left flex-col" : "left-1/2 -translate-x-1/2"}`}
+        style={{ ...pos(B), transform: stack && B.scale !== 1 ? `scale(${B.scale})` : undefined }}
       >
         <Bar width={B.barW} value={s.health} color="linear-gradient(90deg,#c0392b,#ff5a4a)" icon="❤️" low={s.health < w} />
         <Bar width={B.barW} value={s.hunger} color="linear-gradient(90deg,#c46a12,#ffb347)" icon="🍖" low={s.hunger < w} />
@@ -97,18 +97,20 @@ export function InteractPrompt() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const touch = useHud((st) => st.touch);
+  const P = useHud((st) => st.prompt);
   const glow = useTutorialHighlight() === "interact";
   const a = interact.current;
-  // Touch screens use the round USE button instead (TouchControls).
-  if (!a || economy.nearShop || touch) return null;
+  if (!a || economy.nearShop) return null;
+  // Touch: a big pill you just tap ("Talk to Captain Rusty"), as well as the round USE button.
   return (
     <button
       type="button"
       onClick={doInteract}
       disabled={!a.act}
-      className={`fixed left-1/2 top-[62%] z-30 -translate-x-1/2 rounded-xl bg-black/60 px-4 py-2 font-typewriter text-lg text-white disabled:opacity-90 ${glow && a.act ? TUT_GLOW : ""}`}
+      style={{ top: P.top, fontSize: P.font }}
+      className={`fixed left-1/2 z-30 w-max max-w-[92vw] -translate-x-1/2 rounded-xl bg-black/65 px-4 py-2 font-typewriter text-white disabled:opacity-90 ${touch && a.act ? "border-2 border-[#ffd23f] py-2.5 active:scale-95" : ""} ${glow && a.act ? TUT_GLOW : ""}`}
     >
-      {a.act && <span className="mr-2 rounded bg-white/90 px-1.5 text-sm font-bold text-black">E</span>}
+      {a.act && (touch ? <span className="mr-2">👆</span> : <span className="mr-2 rounded bg-white/90 px-1.5 text-sm font-bold text-black">E</span>)}
       {a.label}
     </button>
   );

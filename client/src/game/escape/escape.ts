@@ -15,7 +15,14 @@ export const ESCAPE = {
   camOffset: [9, 2.6, 10] as [number, number, number],
 };
 
-export const escape = { active: false, start: 0 };
+export const escape = {
+  active: false,
+  start: 0,
+  /** I am aboard and waiting for the rest of the crew (online runs). */
+  boardedMe: false,
+  /** Who is aboard so far (null = nobody yet). */
+  aboard: null as { n: number; total: number; waiting: string[] } | null,
+};
 
 export function startEscape() {
   if (escape.active) return;
@@ -26,6 +33,8 @@ export function startEscape() {
 export function resetEscape() {
   escape.active = false;
   escape.start = 0;
+  escape.boardedMe = false;
+  escape.aboard = null;
 }
 
 /** Seconds since boarding (0 when not escaping). */

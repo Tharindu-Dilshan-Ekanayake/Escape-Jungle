@@ -15,6 +15,8 @@ export interface PlayerView {
   uid: string;
   zone: string;
   connected: boolean;
+  /** Highest chapter escaped (0 = none): which maps they may play. */
+  best: number;
 }
 
 export type NetStatus = "connecting" | "online" | "offline";

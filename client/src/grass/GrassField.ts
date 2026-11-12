@@ -176,7 +176,7 @@ export class GrassField {
     m[o + 15] = 1;
   }
 
-  /** Destroy a cell. Returns its plant type id (0 if it was already gone). */
+  /** Destroy a cell (now = performance.now() / 1000). Returns its plant type id (0 if it was already gone). */
   cut(i: number, now: number): number {
     if (!this.isAlive(i)) return 0;
     this.alive[i >> 3] &= ~(1 << (i & 7));
@@ -192,10 +192,14 @@ export class GrassField {
     return this.type[i];
   }
 
-  /** Advance cut animations (blades shrink to stubble). Call once per frame. */
+  /**
+   * Advance cut animations (blades shrink to stubble). Call once per frame with
+   * the same clock as cut() (performance.now() / 1000). t is clamped to 0..1, so
+   * a mismatched clock can only delay a shrink, never stretch a plant upward.
+   */
   update(now: number) {
     for (let a = this.animCount - 1; a >= 0; a--) {
-      const t = Math.min(1, (now - this.animStart[a]) / GRASS_RENDER.cutAnimTime);
+      const t = Math.min(1, Math.max(0, (now - this.animStart[a]) / GRASS_RENDER.cutAnimTime));
       this.setStubble(this.animCell[a], t);
       if (t >= 1) {
         this.animCount--;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { HUD } from "../../config/hud";
-import { CAMPFIRE, VIGNETTE } from "../../config/night";
+import { VIGNETTE } from "../../config/night";
 import { RARITY_COLOR, TREASURE } from "../../config/loot";
 import { dayNight, formatClock } from "../../game/time/dayNight";
 import { campfireGlow } from "../../game/campfire/campfires";
@@ -41,6 +41,7 @@ export function NightVignette() {
 export function DayClock() {
   const el = useRef<HTMLDivElement>(null);
   const C = useHud((s) => s.clock);
+  const small = useHud((s) => s.mode !== "desktop");
   useEffect(() => {
     const id = window.setInterval(() => {
       if (!el.current) return;
@@ -56,16 +57,16 @@ export function DayClock() {
   return (
     <div
       ref={el}
-      className="pointer-events-none fixed z-30 rounded-full bg-black/55 px-3 py-1 font-typewriter text-outline text-sm"
+      className={`pointer-events-none fixed z-30 whitespace-nowrap rounded-full bg-black/55 font-typewriter text-outline ${small ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm"}`}
       style={pos(C)}
     />
   );
 }
 
-/** Log icon (SVG) for the firewood counter. */
-function LogIcon() {
+/** Log icon (SVG) for the firewood count. */
+export function LogIcon({ size = 40 }: { size?: number }) {
   return (
-    <svg width="40" height="28" viewBox="0 0 40 28" aria-hidden>
+    <svg width={size} height={(size * 28) / 40} viewBox="0 0 40 28" aria-hidden>
       <rect x="4" y="8" width="30" height="13" rx="6" fill="#6b4423" stroke="#2a1a0a" strokeWidth="2" />
       <path d="M9 12 H26 M11 17 H30" stroke="#4a2c14" strokeWidth="1.6" />
       <ellipse cx="33" cy="14.5" rx="4.5" ry="6.5" fill="#e0c08c" stroke="#2a1a0a" strokeWidth="2" />
@@ -73,31 +74,6 @@ function LogIcon() {
       <path d="M14 8 Q16 2 21 3" stroke="#6b4423" strokeWidth="2.5" fill="none" />
       <path d="M21 3 q4 -2 6 1 q-4 1 -6 -1" fill="#4f9a3a" />
     </svg>
-  );
-}
-
-/** Bottom-left, above the bag: carried firewood (pulses when full). */
-export function WoodCounter() {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    let last = -1;
-    const id = window.setInterval(() => {
-      if (loot.carried !== last) {
-        last = loot.carried;
-        setN(last);
-      }
-    }, HUD.pollMs);
-    return () => window.clearInterval(id);
-  }, []);
-  const full = n >= CAMPFIRE.carryMax;
-  const W = useHud((s) => s.wood);
-  return (
-    <div className={`pointer-events-none fixed z-30 flex items-center gap-1 ${full ? "animate-pulse" : ""}`} style={pos(W)}>
-      <LogIcon />
-      <span className={`font-typewriter text-outline text-2xl ${full ? "text-[#ffb347]" : "text-white"}`}>
-        {n}/{CAMPFIRE.carryMax}
-      </span>
-    </div>
   );
 }
 

@@ -3,7 +3,10 @@ import { BALANCE } from "../../config/balance";
 import { pickShareTarget, teammates } from "../../game/survival/share";
 import { affordableCount, bagCapacity, buyNextTool, economy, formatCash, isBagFull, nextTool, tool } from "../../game/economy/economy";
 import { useEconomyVersion } from "../../game/economy/useEconomy";
-import { leaveRun } from "../../net/lobbyConnection";
+import { HUD } from "../../config/hud";
+import { CAMPFIRE } from "../../config/night";
+import { loot } from "../../game/loot/loot";
+import { LogIcon } from "./NightLootHud";
 import { useUiStore } from "../../store/uiStore";
 import { sfx } from "../../game/audio/sfx";
 import { pos, useHud } from "../layout/hudLayout";
@@ -12,21 +15,50 @@ import { TUT_GLOW, useTutorialHighlight } from "./TutorialCard";
 
 const keyCap = "rounded bg-white/90 px-1.5 text-sm font-bold text-black";
 
-/** Bag count / capacity (red when full) and cash; scales down on phones. */
-export function BagCash() {
+/** Carried firewood, polled (changes outside React). */
+function useCarried() {
+  const [n, setN] = useState(loot.carried);
+  useEffect(() => {
+    const id = window.setInterval(() => setN((v) => (v === loot.carried ? v : loot.carried)), HUD.pollMs);
+    return () => window.clearInterval(id);
+  }, []);
+  return n;
+}
+
+/** Bottom-left status card: bag (fill bar, red when full), cash and firewood, in one tidy panel. */
+export function StatusCard() {
   useEconomyVersion();
   const L = useHud((s) => s.bag);
+  const logs = useCarried();
   const full = isBagFull();
+  const cap = bagCapacity();
+  const fill = Math.min(100, (economy.bag / cap) * 100);
+  const logsFull = logs >= CAMPFIRE.carryMax;
   return (
     <div className="pointer-events-none fixed z-30 origin-bottom-left select-none" style={{ ...pos(L), transform: `scale(${L.scale})` }}>
-      <div className="flex items-end gap-2">
-        <div className="relative text-5xl drop-shadow">🎒</div>
-        <div className="leading-none">
-          <div className="font-typewriter text-outline text-sm text-white">{bagCapacity()}</div>
-          <div className={`font-typewriter text-outline text-4xl ${full ? "text-[#ff4d3d]" : "text-white"}`}>{economy.bag}</div>
+      <div className="w-[214px] rounded-2xl border-2 border-white/25 bg-gradient-to-b from-[#1d2a1d]/80 to-[#101810]/80 p-2.5 shadow-[0_6px_18px_rgba(0,0,0,0.45)]">
+        <div className="flex items-center gap-2">
+          <span className="text-3xl drop-shadow">🎒</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between font-typewriter text-outline text-white">
+              <span className={`text-2xl ${full ? "text-[#ff5a4a]" : ""}`}>{economy.bag}</span>
+              <span className="text-sm text-white/80">/ {cap}</span>
+            </div>
+            <div className="mt-0.5 h-2.5 overflow-hidden rounded-full border border-black/60 bg-black/50">
+              <div className={`h-full rounded-full transition-[width] duration-300 ${full ? "animate-pulse bg-[#ff5a4a]" : "bg-gradient-to-r from-[#7bd13a] to-[#c6f03a]"}`} style={{ width: `${fill}%` }} />
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/15 pt-2">
+          <span className="font-typewriter text-outline text-3xl leading-none text-[#5ee05e]">{formatCash(economy.cash)}</span>
+          <span className={`flex items-center gap-1 rounded-full bg-black/35 py-0.5 pl-1 pr-2 ${logsFull ? "animate-pulse" : ""}`}>
+            <LogIcon size={28} />
+            <span className={`font-typewriter text-outline text-lg ${logsFull ? "text-[#ffb347]" : "text-white"}`}>
+              {logs}/{CAMPFIRE.carryMax}
+            </span>
+          </span>
         </div>
       </div>
-      <div className="font-typewriter text-outline mt-1 text-4xl text-[#5ee05e]">{formatCash(economy.cash)}</div>
     </div>
   );
 }
@@ -46,13 +78,27 @@ export function Hotbar() {
   );
 }
 
-/** UPGRADES (TAB) with a red badge = affordable upgrades. */
-export function UpgradesButton() {
+/** UPGRADES (TAB) with a red badge = affordable upgrades. inline = the small one in the phones' top row. */
+export function UpgradesButton({ inline = false, size = 40 }: { inline?: boolean; size?: number }) {
   useEconomyVersion();
   const L = useHud((s) => s.upgrades);
   const touch = useHud((s) => s.touch);
   const n = affordableCount();
   const glow = useTutorialHighlight() === "upgrades";
+  if (inline)
+    return (
+      <button
+        type="button"
+        onClick={() => useUiStore.getState().openPanel("upgrades")}
+        aria-label="Upgrades"
+        className={`relative flex items-center gap-1 rounded-xl border-2 bg-[#3f8f4f]/90 px-2 font-lobby font-bold text-white shadow ${n ? "border-[#ffd23f]" : "border-black/40"} ${glow ? TUT_GLOW : ""}`}
+        style={{ height: size, fontSize: size < 44 ? 13 : 15 }}
+      >
+        <span className="text-lg">⬆️</span>
+        {size >= 38 && <span className="text-outline">UPGRADES</span>}
+        {n > 0 && <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full border-2 border-white bg-[#e8302a] text-[11px] font-bold">{n}</span>}
+      </button>
+    );
   return (
     <button
       type="button"
@@ -75,10 +121,11 @@ export function openTeamPanel() {
   if (pickShareTarget()) useUiStore.getState().openPanel("share");
 }
 
-/** Settings + Team (T, only with teammates) + Leave (L). */
+/** Team (T, only with teammates) + upgrades (phones) + settings (Leave is inside settings; L still works). */
 export function TopButtons() {
   const L = useHud((s) => s.topButtons);
   const touch = useHud((s) => s.touch);
+  const mode = useHud((s) => s.mode);
   const [mates, setMates] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => setMates(teammates().length), 500);
@@ -97,6 +144,7 @@ export function TopButtons() {
           🤝 Team {!touch && <span className={`ml-1 ${keyCap}`}>T</span>}
         </button>
       )}
+      {mode !== "desktop" && <UpgradesButton inline size={L.size} />}
       <button
         type="button"
         onClick={() => useUiStore.getState().openPanel("settings")}
@@ -106,14 +154,6 @@ export function TopButtons() {
       >
         ⚙️
       </button>
-      <button
-        type="button"
-        onClick={leaveRun}
-        className="rounded-xl border-2 border-black/40 bg-[#c0392b]/90 px-3 font-lobby font-bold text-white shadow"
-        style={{ height: L.size, fontSize: L.size < 44 ? 15 : 18 }}
-      >
-        Leave {!touch && <span className={`ml-1 ${keyCap}`}>L</span>}
-      </button>
     </div>
   );
 }
@@ -122,6 +162,7 @@ export function TopButtons() {
 export function SaleAndShop() {
   useEconomyVersion();
   const touch = useHud((s) => s.touch);
+  const P = useHud((s) => s.prompt);
   const next = nextTool();
   const price = next ? BALANCE.tools[next].price : 0;
   const canAfford = economy.cash >= price;
@@ -132,16 +173,17 @@ export function SaleAndShop() {
           +{formatCash(economy.lastSale.amount)}
         </div>
       )}
-      {economy.nearShop && !touch && (
+      {economy.nearShop && (
         <button
           type="button"
           onClick={() => buyNextTool() && sfx.equip()}
           disabled={!next || !canAfford}
-          className="fixed left-1/2 top-[56%] z-30 -translate-x-1/2 rounded-xl bg-black/60 px-4 py-2 text-left font-typewriter text-white disabled:opacity-80"
+          style={{ top: P.top, fontSize: P.font }}
+          className={`fixed left-1/2 z-30 w-max max-w-[92vw] -translate-x-1/2 rounded-xl bg-black/65 px-4 py-2 text-left font-typewriter text-white disabled:opacity-80 ${touch ? "border-2 border-[#ffd23f] py-2.5" : ""}`}
         >
           {next ? (
             <>
-              <span className={`mr-2 ${keyCap}`}>E</span>
+              {touch ? <span className="mr-2">👆</span> : <span className={`mr-2 ${keyCap}`}>E</span>}
               Buy {BALANCE.tools[next].name} <span className={canAfford ? "text-[#5ee05e]" : "text-[#ff6b5a]"}>{formatCash(price)}</span>
             </>
           ) : (
