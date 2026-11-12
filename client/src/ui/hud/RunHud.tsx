@@ -116,11 +116,12 @@ function Banner() {
     return () => window.clearInterval(id);
   }, []);
   const L = useHud((st) => st.banner);
+  const small = useHud((st) => st.mode !== "desktop");
   return (
     <div
       ref={box}
       style={{ display: "none", top: L.top, maxWidth: L.maxWidth, fontSize: L.font }}
-      className="hud-banner pointer-events-none fixed left-1/2 z-30 w-max -translate-x-1/2 items-center gap-2 rounded-full border-2 px-4 py-1 text-center font-banner leading-tight text-white"
+      className={`hud-banner pointer-events-none fixed left-1/2 z-30 w-max -translate-x-1/2 items-center rounded-full border-2 text-center font-banner leading-tight text-white ${small ? "gap-1.5 px-3 py-0.5" : "gap-2 px-4 py-1"}`}
     >
       <span ref={icon} className="text-[1.15em]" />
       <span ref={el} className="text-outline" />
@@ -133,7 +134,7 @@ function GrinderArrow() {
   const el = useRef<HTMLDivElement>(null);
   const arrow = useRef<SVGSVGElement>(null);
   const dist = useRef<HTMLSpanElement>(null);
-  const top = useHud((st) => st.banner.top);
+  const A = useHud((st) => st.arrow);
   useEffect(() => {
     const id = window.setInterval(() => {
       if (!el.current || !arrow.current || !dist.current) return;
@@ -151,7 +152,7 @@ function GrinderArrow() {
     return () => window.clearInterval(id);
   }, []);
   return (
-    <div ref={el} style={{ display: "none", top: top + 44, left: "50%", marginLeft: -34 }} className="hud-bob pointer-events-none fixed z-30 w-[68px] flex-col items-center">
+    <div ref={el} style={{ display: "none", top: A.top, left: "50%", marginLeft: -34, transform: A.scale !== 1 ? `scale(${A.scale})` : undefined, transformOrigin: "top center" }} className="hud-bob pointer-events-none fixed z-30 w-[68px] flex-col items-center">
       <div className="grid h-[60px] w-[60px] place-items-center rounded-full border-[3px] border-[#ffd23f] bg-[#1d140c]/75 shadow-[0_0_16px_rgba(255,210,63,0.55)]">
         <svg ref={arrow} viewBox="0 0 48 48" width="40" height="40" style={{ transition: "transform 0.12s linear" }} aria-hidden>
           <defs>

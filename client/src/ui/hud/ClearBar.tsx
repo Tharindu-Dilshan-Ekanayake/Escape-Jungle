@@ -34,10 +34,11 @@ export function ClearBar() {
       }
       const f = best?.field;
       const pct = f ? Math.floor(f.clearRatio * 100) : 0;
+      const need = Math.round(GATES.clearToOpen * 100);
       const key = `${best?.zone.id}:${pct}`;
       if (key === last) return;
       last = key;
-      if (label.current) label.current.textContent = best ? `${best.zone.name} · ${pct}%` : `Clear the area ${pct}%`;
+      if (label.current) label.current.textContent = best ? (useHud.getState().mode === "desktop" ? `${best.zone.name} · cut ${pct}% / ${need}%` : `${best.zone.name} · ${pct}% / ${need}%`) : `Clear the area ${pct}%`;
       if (fill.current) fill.current.style.width = `${f ? f.clearRatio * 100 : 0}%`;
     }, HUD.pollMs);
     return () => window.clearInterval(id);
@@ -45,7 +46,7 @@ export function ClearBar() {
 
   return (
     <div className="pointer-events-none fixed left-1/2 z-30 -translate-x-1/2 text-center" style={{ top: L.top, width: L.width }}>
-      <span id="clear-label" ref={label} className="font-typewriter text-outline text-white" style={{ fontSize: L.font }}>
+      <span id="clear-label" ref={label} className="block whitespace-nowrap font-typewriter text-outline text-white" style={{ fontSize: L.font }}>
         Clear the area 0%
       </span>
       <div className="relative mt-1 h-3 overflow-hidden rounded-full border-2 border-black/70 bg-black/35">

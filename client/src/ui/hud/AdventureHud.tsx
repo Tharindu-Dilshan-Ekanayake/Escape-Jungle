@@ -30,7 +30,7 @@ export function AdventureTracker() {
   const list = adventures.list.filter((a) => a.state === ST.Active || a.state === ST.Ready);
   if (!list.length) return null;
   return (
-    <div className="pointer-events-none fixed z-30 space-y-1.5" style={{ ...pos(T), width: T.width }}>
+    <div className="pointer-events-none fixed z-30 origin-top-left space-y-1.5" style={{ ...pos(T), width: T.width, transform: T.scale !== 1 ? `scale(${T.scale})` : undefined }}>
       <div className="font-lobby text-outline text-sm font-bold text-[#ffd23f]">
         ADVENTURES {doneCount()}/{ADVENTURES.length}
       </div>
