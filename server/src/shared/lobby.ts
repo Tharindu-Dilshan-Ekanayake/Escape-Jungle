@@ -4,8 +4,9 @@
  */
 /**
  * Three expedition areas at the north end, one per map: Misty Gorge (west),
- * The Overgrowth (centre), Sunken Temple (east). Each is a 2 x 2 block of pads
- * for crews of 1 and 2 (front) and 3 and 4 (back).
+ * The Overgrowth (centre), Sunken Temple (east). Each is a 4 x 2 block of 8 pads:
+ * two pads for each crew size, 1 and 2 in front, 3 and 4 behind, so several crews
+ * (and several solo players) can set off from the same map at once.
  */
 const AREAS = [
   { chapter: 2, x: -21 },
@@ -13,19 +14,30 @@ const AREAS = [
   { chapter: 3, x: 21 },
 ] as const;
 
+/** Pad rows (z) and the crew size of each pad along the row, west to east. */
+const PAD_ROWS = [
+  { z: -9, sizes: [1, 1, 2, 2] },
+  { z: -15, sizes: [3, 3, 4, 4] },
+] as const;
+const PAD_PITCH = 4.2;
+
 export const LOBBY_LAYOUT = {
   /** Walkable plaza (wide enough for the three expedition areas). */
   bounds: { minX: -31, maxX: 31, minZ: -20, maxZ: 14 },
   spawn: { x: 0, z: 10, yaw: 0, scatter: 2 },
   areas: AREAS,
-  /** Expedition pads: per area, crews of 1 and 2 in front, 3 and 4 behind; each pad plays its area's map. */
-  pads: AREAS.flatMap((a) => [
-    { x: a.x - 3, z: -9, size: 1, chapter: a.chapter },
-    { x: a.x + 3, z: -9, size: 2, chapter: a.chapter },
-    { x: a.x - 3, z: -15, size: 3, chapter: a.chapter },
-    { x: a.x + 3, z: -15, size: 4, chapter: a.chapter },
-  ]),
-  padSize: 4.6,
+  /** Expedition pads: per area two of each crew size (see PAD_ROWS); each pad plays its area's map. */
+  pads: AREAS.flatMap((a) =>
+    PAD_ROWS.flatMap((row) =>
+      row.sizes.map((size, col) => ({ x: a.x + (col - (row.sizes.length - 1) / 2) * PAD_PITCH, z: row.z, size: size as number, chapter: a.chapter as number })),
+    ),
+  ),
+  padSize: 3.6,
+  /** Rows of pads (z) and the distance between neighbouring pads in a row (boardwalks, signs). */
+  padRows: PAD_ROWS.map((r) => r.z),
+  padPitch: PAD_PITCH,
+  /** Pads per row: the boardwalk under a row spans (cols - 1) * pitch + padSize. */
+  padCols: 4,
 } as const;
 
 export const LOBBY_RULES = {
