@@ -12,7 +12,8 @@ import { sendRunFinished } from "../save/runSave";
 import { ESCAPE, escape, escapeTime, resetEscape, startEscape } from "./escape";
 import { runHandlers } from "../../net/runNet";
 
-const PAD = ZONES1[ZONES1.length - 1].base;
+/** The loaded chapter's last base (read when the stage mounts). */
+const pad = () => ZONES1[ZONES1.length - 1].base;
 const look = new Vector3();
 /** Only drawn when this close (it sits at the very end of the map). */
 const DRAW_RANGE = 90;
@@ -26,6 +27,7 @@ const ease = (x: number) => x * x * (3 - 2 * x);
  * 2 draw calls, only near the pad.
  */
 export function EscapeSystem() {
+  const PAD = useMemo(pad, []);
   const camera = useThree((s) => s.camera);
   const r = useMemo(() => {
     const mat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });

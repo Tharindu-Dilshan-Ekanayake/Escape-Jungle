@@ -3,6 +3,7 @@ import { CAMPFIRE } from "../../config/night";
 import { ZONES1 } from "../../config/zones1";
 import { outpostPlan } from "../../world/zones/outpostLayout";
 import { runNet, sendFuel } from "../../net/runNet";
+import { chapterData } from "../../config/chapters";
 
 /**
  * Campfire pits: one in Camp 1 and one in every outpost (not the rescue point).
@@ -45,7 +46,7 @@ function outpostFire(i: number): FireSpot {
 }
 
 export function campfireSpots(): FireSpot[] {
-  const list: FireSpot[] = [{ x: CAMPFIRE.camp.x, z: CAMPFIRE.camp.z, name: "Landing Site" }];
+  const list: FireSpot[] = [{ x: CAMPFIRE.camp.x, z: CAMPFIRE.camp.z, name: chapterData().campName }];
   for (let i = 0; i < ZONES1.length - 1; i++) list.push(outpostFire(i));
   return list;
 }

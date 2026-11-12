@@ -12,7 +12,7 @@ import {
   Object3D,
   SRGBColorSpace,
 } from "three";
-import { CHAPTERS, LOBBY_LAYOUT } from "@shared";
+import { CHAPTERS, LOBBY_LAYOUT, chapterPlayable, chapterUnlocked } from "@shared";
 import { useLobbyStore, type PadView } from "../../store/lobbyStore";
 import { PAD_SIGN, padSignSpot } from "./padSigns";
 
@@ -25,7 +25,7 @@ const ATLAS_H = CELL_H * Math.ceil(N / COLS);
 
 interface SignState {
   title: string;
-  status: "OPEN" | "BOARDING" | "STARTING" | "FULL" | "SOLO";
+  status: "OPEN" | "BOARDING" | "STARTING" | "FULL" | "SOLO" | "LOCKED" | "SOON";
   count: number;
   max: number;
   countdown: number;
@@ -38,6 +38,8 @@ const STATUS_COLOR: Record<SignState["status"], string> = {
   STARTING: "#f2c230",
   FULL: "#e8503a",
   SOLO: "#4cc3f0",
+  LOCKED: "#6b5a44",
+  SOON: "#8a7a64",
 };
 const GLOW_COLOR: Record<SignState["status"], Color> = {
   OPEN: new Color("#d6ff4a"),
@@ -45,12 +47,16 @@ const GLOW_COLOR: Record<SignState["status"], Color> = {
   STARTING: new Color("#ffd23f"),
   FULL: new Color("#ff5a3a"),
   SOLO: new Color("#7fd8ff"),
+  LOCKED: new Color("#000000"),
+  SOON: new Color("#000000"),
 };
 
-function stateOf(pad: PadView | undefined, size: number, online: boolean, nameOf: (id: string) => string): SignState {
+function stateOf(pad: PadView | undefined, size: number, chapter: number, myBest: number, online: boolean, nameOf: (id: string) => string): SignState {
   const count = pad?.members.length ?? 0;
   const max = pad?.maxPlayers ?? size;
-  const chapter = pad?.chapter ?? 1;
+  // Maps not built yet, or not unlocked by me (offline: only the first map).
+  if (!chapterPlayable(chapter)) return { title: "Coming soon", status: "SOON", count: 0, max, countdown: -1, chapter };
+  if (online ? !chapterUnlocked(chapter, myBest) : chapter !== 1) return { title: `Escape map ${chapter - 1} first`, status: "LOCKED", count, max, countdown: -1, chapter };
   if (!online) return { title: "Solo expedition", status: "SOLO", count: 0, max: 1, countdown: -1, chapter };
   const countdown = pad?.countdown ?? -1;
   const host = pad?.host ? nameOf(pad.host) : "";
@@ -118,7 +124,7 @@ function drawSign(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: Sign
   ctx.fillStyle = "#fff4d6";
   ctx.fillText(s.title, cx + CELL_W / 2, cy + 68);
   // Status pill.
-  const statusText = s.status === "STARTING" ? `STARTING ${Math.max(0, s.countdown)}` : s.status;
+  const statusText = s.status === "STARTING" ? `STARTING ${Math.max(0, s.countdown)}` : s.status === "LOCKED" ? "🔒 LOCKED" : s.status === "SOON" ? "🚧 SOON" : s.status;
   pill(ctx, cx + CELL_W / 2 - 105, cy + 112, 210, 46, STATUS_COLOR[s.status], statusText, s.status === "OPEN" ? "#3a2412" : "#ffffff");
   // Players + chapter pills.
   pill(ctx, cx + 70, cy + 176, 160, 48, "#fff4d6", `👥 ${s.count}/${s.max}`, "#5a3a7a");
@@ -165,6 +171,7 @@ export function PadSigns() {
   const pads = useLobbyStore((s) => s.pads);
   const status = useLobbyStore((s) => s.status);
   const players = useLobbyStore((s) => s.players);
+  const me = useLobbyStore((s) => s.me);
 
   const r = useMemo(() => {
     const canvas = document.createElement("canvas");
@@ -229,7 +236,8 @@ export function PadSigns() {
     const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? "Explorer";
     const draw = () => {
       const ctx = r.canvas.getContext("2d")!;
-      r.states = LOBBY_LAYOUT.pads.map((spot, i) => stateOf(pads[i], spot.size, online, nameOf));
+      const myBest = players.find((pl) => pl.id === me)?.best ?? 0;
+      r.states = LOBBY_LAYOUT.pads.map((spot, i) => stateOf(pads[i], spot.size, spot.chapter, myBest, online, nameOf));
       r.states.forEach((st, i) => drawSign(ctx, (i % COLS) * CELL_W, Math.floor(i / COLS) * CELL_H, st));
       r.texture.needsUpdate = true;
       r.states.forEach((st, i) => r.columns.setColorAt(i, GLOW_COLOR[st.status]));

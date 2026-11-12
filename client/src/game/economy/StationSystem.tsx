@@ -17,15 +17,23 @@ function propSpot(kind: string) {
   return { x: p.x, z: p.z };
 }
 
-/** Every grinder intake (camp + outposts). */
-export const GRINDERS = allGrinders();
-/** Every tool shop: the camp tool board, then one per outpost, each selling a better tool. */
-export const SHOPS: { x: number; z: number; tool: ToolKey }[] = [
-  { ...propSpot("toolBoard"), tool: BALANCE.shopTools[0] as ToolKey },
-  ...campLayouts()
-    .slice(1)
-    .flatMap((c, i) => (c.shop && BALANCE.shopTools[i + 1] ? [{ x: c.shop.x, z: c.shop.z, tool: BALANCE.shopTools[i + 1] as ToolKey }] : [])),
-];
+/** Every grinder intake (camp + outposts) and tool shop (camp board, then one per outpost) of the loaded chapter. */
+export const GRINDERS: ReturnType<typeof allGrinders> = [];
+export const SHOPS: { x: number; z: number; tool: ToolKey }[] = [];
+
+/** Rebuild the lists for the chapter now loaded (the stage calls this after applyChapter). */
+export function refreshStations() {
+  GRINDERS.splice(0, GRINDERS.length, ...allGrinders());
+  SHOPS.splice(
+    0,
+    SHOPS.length,
+    { ...propSpot("toolBoard"), tool: BALANCE.shopTools[0] as ToolKey },
+    ...campLayouts()
+      .slice(1)
+      .flatMap((c, i) => (c.shop && BALANCE.shopTools[i + 1] ? [{ x: c.shop.x, z: c.shop.z, tool: BALANCE.shopTools[i + 1] as ToolKey }] : [])),
+  );
+}
+refreshStations();
 
 if (import.meta.env.DEV) Object.assign(window, { __shops: SHOPS });
 

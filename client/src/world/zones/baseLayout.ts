@@ -1,6 +1,7 @@
 import { ZONES1 } from "../../config/zones1";
 import { FORAGE } from "../../config/survival";
 import { CRASH_CAMP } from "../../config/crashCamp";
+import { chapterData } from "../../config/chapters";
 
 /** Crash site: big rain catcher beside the trail out, big parachute shelter. */
 const CAMP_WATER = CRASH_CAMP.water;
@@ -35,7 +36,7 @@ const face = (x: number, z: number, cx: number, cz: number): Spot => ({ x, z, ro
 /** Crash site (hand placed, clear of the existing camp props) + every outpost (not the rescue point). */
 export function campLayouts(): CampLayout[] {
   const list: CampLayout[] = [
-    { name: "Landing Site", store: face(-6.8, 7.2, 0, 2), water: { ...face(CAMP_WATER.x, CAMP_WATER.z, 0, 2), scale: CAMP_WATER.scale }, tent: { ...face(-8, 2, 0, 2), scale: CAMP_TENT_SCALE } },
+    { name: chapterData().campName, store: face(-6.8, 7.2, 0, 2), water: { ...face(CAMP_WATER.x, CAMP_WATER.z, 0, 2), scale: CAMP_WATER.scale }, tent: { ...face(-8, 2, 0, 2), scale: CAMP_TENT_SCALE } },
   ];
   // Outposts: every thing in its own place (config/outpostPlan.ts).
   for (let i = 0; i < ZONES1.length - 1; i++) {

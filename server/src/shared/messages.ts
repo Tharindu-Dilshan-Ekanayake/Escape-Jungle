@@ -16,8 +16,6 @@ export const MSG = {
   move: "move",
   /** Ask the server to put me on the nearest pad with space. */
   quickJoin: "quickJoin",
-  /** Host only: { chapter } the map this pad's crew will play (must be unlocked for everyone on it). */
-  padChapter: "padChapter",
   /** { look } my equipped Boxity avatar item ids (validated server-side). */
   look: "look",
   /** { id } play an emote (client -> server); { sid, id } relayed to others (server -> client). */

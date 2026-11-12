@@ -4,6 +4,7 @@ import type { FireSpot } from "../../game/campfire/campfires";
 import type { CampLayout } from "./baseLayout";
 import { FINAL_WRECK } from "../../config/cutscene";
 import type { BannerSpec } from "../banners/banners";
+import { chapterData } from "../../config/chapters";
 
 /**
  * Camp dressing: plaques on the food stores and water, and the scorched
@@ -25,7 +26,8 @@ export function addCampDecor(b: PartBuilder, colliders: Collider[], camps: CampL
     banners.push({ text: "WATER", x: wt.x, y: 1.8 * wk, z: wt.z, rotY: c.water.rotY, w: 0.62 * wk, h: 0.2 * wk, style: "cream" });
   };
 
-  // Scorched ground and a ploughed trench where the plane came down (stage 7).
+  // Scorched ground and a ploughed trench where the plane came down (chapter 1, stage 7).
+  if (!chapterData().intro) return banners;
   const [nx, , nz] = FINAL_WRECK.pieces.nose.pos;
   b.cyl(5.2, 5.4, 0.03, 14, { pos: [nx + 1.5, 0.03, nz + 2.5], color: "#3a2e24", top: "#4a3a2c" });
   b.cyl(2.6, 2.6, 0.035, 12, { pos: [nx + 0.4, 0.035, nz + 0.3], color: "#2a221c" });

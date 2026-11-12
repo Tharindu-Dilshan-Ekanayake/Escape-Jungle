@@ -11,6 +11,7 @@ import { stringLights } from "../props/decor";
  * park trees, string lights between the lamps and a big expedition sign behind the pads.
  */
 export const ARCH_Z = LOBBY_LAYOUT.pads[0].z + 3.4;
+void ARCH_Z;
 
 const C = {
   cream: "#f3e2b8",
@@ -81,8 +82,12 @@ export function addLobbyDecor(b: PartBuilder, colliders: Collider[]) {
     [5, -4, 13, -6],
   ];
   for (const [x0, zz0, x1, zz1] of pairs) if (lampAt(x0, zz0) && lampAt(x1, zz1)) stringLights(b, x0, zz0, x1, zz1, 3.95, 0.3);
-  // Big "JUNGLE EXPEDITION" sign standing behind the back row of pads (its words are a banner).
-  const { x: sx0, z: sz, halfW, y: sy, h: sh } = BIG_SIGN;
+  // A big sign behind each expedition area (its words are a banner).
+  for (const sign of BIG_SIGNS) bigSign(b, colliders, sign);
+}
+
+function bigSign(b: PartBuilder, colliders: Collider[], sign: (typeof BIG_SIGNS)[number]) {
+  const { x: sx0, z: sz, halfW, y: sy, h: sh } = sign;
   for (const s of [-1, 1]) {
     const px = sx0 + s * (halfW + 0.2);
     b.cyl(0.32, 0.4, sy + sh / 2 + 0.9, 7, { pos: [px, (sy + sh / 2 + 0.9) / 2, sz], color: C.wood, top: "#9c6a3c", jitter: 0.06 });
@@ -96,6 +101,6 @@ export function addLobbyDecor(b: PartBuilder, colliders: Collider[]) {
   for (let i = 0; i < 15; i++) b.ico(0.1, 0, { pos: [sx0 - halfW + (i * halfW * 2) / 14, sy + sh / 2 + 0.6, sz], color: C.bulbs[i % C.bulbs.length], glow: true });
 }
 
-/** The big expedition sign behind the pads (centre, half width, face height/centre). */
-export const BIG_SIGN = { x: 0, z: LOBBY_LAYOUT.pads[LOBBY_LAYOUT.pads.length - 1].z - 5.3, halfW: 6.2, y: 6.3, h: 2.3 };
+/** A big sign behind each expedition area (centre, half width, face height/centre) and the map it opens. */
+export const BIG_SIGNS = LOBBY_LAYOUT.areas.map((a) => ({ x: a.x, z: -15 - 5.3, halfW: 5, y: 6.3, h: 2.3, chapter: a.chapter }));
 

@@ -3,6 +3,7 @@ import { ZONES1 } from "../../config/zones1";
 import { CAMP1 } from "../../config/camp1";
 import { inZones } from "../../world/zones/buildZones";
 import { mulberry32 } from "../../world/geo/rng";
+import { chapterData } from "../../config/chapters";
 
 /** World bounds of the map (metres) + the static parchment layer drawn once per run. */
 export interface MapBounds {
@@ -145,7 +146,7 @@ export function drawStaticMap(b: MapBounds): HTMLCanvasElement {
     ctx.fillStyle = C.ink;
     ctx.fillText(text, px(x), pz(z));
   };
-  label("LANDING SITE", 0, CAMP1.boundRadius + 4, 16);
+  label(chapterData().campName.toUpperCase(), 0, CAMP1.boundRadius + 4, 16);
   for (const zn of ZONES1) {
     label(zn.name.toUpperCase(), (zn.rect.minX + zn.rect.maxX) / 2, zn.rect.minZ - 3.5, 15);
     label(zn.base.name, zn.base.x, zn.base.z + zn.base.r + 3.5, 13);

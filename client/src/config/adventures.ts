@@ -1,7 +1,10 @@
 /** One mini adventure per area, each given by a character in the camp before it. */
 export type AdventureId = "luggage" | "monkey" | "frogs" | "lanterns" | "monkeyKing" | "butterflies";
 
-export type NpcLook = "pilot" | "professor" | "frog" | "monk" | "monkeyKing" | "botanist";
+export type NpcLook =
+  | "pilot" | "professor" | "frog" | "monk" | "monkeyKing" | "botanist"
+  // Misty Gorge (chapter 2)
+  | "ranger" | "climber" | "yodeler" | "fogWitch" | "gorillaChief" | "collector";
 
 export interface AdventureDef {
   id: AdventureId;

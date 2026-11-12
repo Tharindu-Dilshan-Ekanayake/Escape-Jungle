@@ -276,10 +276,7 @@ function sendMove() {
   room.send(MSG.move, { x: player.x, z: player.z, yaw, y: Math.round(player.y * 100) / 100, st: senderTime() } as RunMovePayload);
 }
 
-/** Host of a pad: the map the crew will play. */
-export function sendPadChapter(chapter: number) {
-  room?.send(MSG.padChapter, { chapter });
-}
+
 
 
 /** PLAY button: online the server picks a pad; offline we just walk-teleport locally. */

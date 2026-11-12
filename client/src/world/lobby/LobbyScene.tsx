@@ -81,7 +81,8 @@ export default function LobbyScene() {
   useEffect(() => {
     if (status === "online") return;
     const id = window.setInterval(() => {
-      const pad = padAt(player.x, player.z);
+      const at = padAt(player.x, player.z);
+      const pad = at >= 0 && LOBBY_LAYOUT.pads[at].chapter === 1 ? at : -1; // other maps need the server (unlocks)
       if (pad !== useLobbyStore.getState().localPad) useLobbyStore.setState({ localPad: pad });
     }, LOCAL_PAD_POLL_MS);
     return () => window.clearInterval(id);

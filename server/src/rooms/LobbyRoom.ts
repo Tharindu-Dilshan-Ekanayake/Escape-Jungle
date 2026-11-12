@@ -100,7 +100,6 @@ export class LobbyRoom extends BaseRoom<WorldState> {
     });
     onRun(RUN_MSG.finished, (run) => this.escaped(run));
     onRun(RUN_MSG.board, (run, c) => this.runs.board(run, c));
-    this.onMessage(MSG.padChapter, (client, msg: { chapter?: unknown }) => this.pads.setChapter(client.sessionId, msg?.chapter));
     this.onMessage(MSG.quickJoin, (client) => this.quickJoin(client));
     this.onMessage(MSG.leaveRun, (client) => this.backToLobby(client));
     this.onMessage(MSG.look, (client, msg: { look?: unknown }) => {

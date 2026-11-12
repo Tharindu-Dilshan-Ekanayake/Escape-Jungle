@@ -132,3 +132,30 @@ export function loadItem(url: string): Promise<BufferGeometry | null> {
   }
   return p;
 }
+
+let armPromise: Promise<BufferGeometry> | null = null;
+
+/**
+ * The right-arm block of player.glb in its bind pose (not skinned), for the
+ * first-person view. Re-centred so the hand end sits at the origin and +Y runs
+ * up the arm to the shoulder; its UVs use the same body texture as the avatar.
+ */
+export function loadArmGeometry(): Promise<BufferGeometry> {
+  armPromise ??= new GLTFLoader().loadAsync(`${avatarBase()}/player.glb`).then((gltf) => {
+    let found: BufferGeometry | null = null;
+    gltf.scene.traverse((o) => {
+      const g = (o as { geometry?: BufferGeometry }).geometry;
+      if (!found && g && o.name === "default_arm_R") found = g.clone();
+    });
+    if (!found) throw new Error("player.glb has no default_arm_R");
+    const arm: BufferGeometry = found;
+    arm.deleteAttribute("skinIndex");
+    arm.deleteAttribute("skinWeight");
+    arm.computeBoundingBox();
+    const b = arm.boundingBox!;
+    arm.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+    arm.computeBoundingSphere();
+    return arm;
+  });
+  return armPromise;
+}

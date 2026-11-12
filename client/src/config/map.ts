@@ -31,5 +31,5 @@ export const MAP = {
     treasure: "#fff1a8",
   },
   /** Map colour of the uncut plants in each zone, by plant id. */
-  plantColors: { 1: "#9be22d", 2: "#4fa83a", 3: "#8fa85a", 4: "#c8d86a", 5: "#5fbf3a", 6: "#e889b8" } as Record<number, string>,
+  plantColors: { 1: "#9be22d", 2: "#4fa83a", 3: "#8fa85a", 4: "#c8d86a", 5: "#5fbf3a", 6: "#e889b8", 7: "#8fb8a4", 8: "#9aaa78", 9: "#6f9a64", 10: "#d0dcd2", 11: "#c86a7a", 12: "#5faa78" } as Record<number, string>,
 };

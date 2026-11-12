@@ -104,6 +104,9 @@ export function syncDayNight(elapsed: number) {
 }
 
 export function resetDayNight() {
+  KEYS.day = parse(LIGHT_KEYS.day);
+  KEYS.dusk = parse(LIGHT_KEYS.dusk);
+  KEYS.night = parse(LIGHT_KEYS.night);
   dayNight.elapsed = 0;
   dayNight.t = 0;
   dayNight.nights = 0;

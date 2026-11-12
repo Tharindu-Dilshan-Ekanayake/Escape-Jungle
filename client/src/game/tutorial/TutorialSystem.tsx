@@ -20,7 +20,6 @@ const dummy = new Object3D();
 const tint = new Color();
 const GOLD = new Color("#ffd23f");
 const WHITE = new Color("#fff8d0");
-const MEADOW = ZONES1[0].rect;
 
 const levelSum = () => Object.values(economy.levels).reduce((a, b) => a + b, 0);
 
@@ -45,6 +44,7 @@ function target(step: string): { x: number; z: number } | null {
   }
   if (step === "cut") {
     // Into the meadow's tall grass (nothing to point at once you are in it).
+    const MEADOW = ZONES1[0].rect;
     const inside = player.x > MEADOW.minX && player.x < MEADOW.maxX && player.z > MEADOW.minZ && player.z < MEADOW.maxZ;
     return inside ? null : { x: 0, z: MEADOW.maxZ - 2.5 };
   }

@@ -28,6 +28,7 @@ import { BASE_PATH } from "../../config/zonesDecor";
 import { toolBoard } from "../props/campProps";
 import { BALANCE } from "../../config/balance";
 import { allGrinders } from "../zones/stations";
+import { chapterData } from "../../config/chapters";
 
 export interface Chapter1Build {
   solid: ChunkGeometry[];
@@ -166,7 +167,7 @@ export function buildChapter1(): Chapter1Build {
   }
   for (const p of forage.springs) spring(b, p.x, p.z);
   // The plane wreck at stage 7 (pieces placed by the intro).
-  for (const c of FINAL_WRECK.colliders) colliders.push({ kind: "circle", ...c });
+  if (chapterData().intro) for (const c of FINAL_WRECK.colliders) colliders.push({ kind: "circle", ...c });
   // Gates close each zone's exit path until the zone is cleared.
   const gateColliders = ZONES1.map((zn) =>
     toWorld({ kind: "box", x: 0, z: 0, hx: zn.gate.width / 2 + 0.3, hz: GATES.thickness }, zn.gate.x, zn.gate.z, zn.gate.rotY),
