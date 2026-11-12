@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/* Self-hosted fonts (CLAUDE.md section 4). Files live in /public/fonts. */
+@font-face {
+  font-family: "Special Elite";
+  src: url("/fonts/special-elite-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fredoka";
+  src: url("/fonts/fredoka-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fredoka";
+  src: url("/fonts/fredoka-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fredoka";
+  src: url("/fonts/fredoka-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/montserrat-latin-800-normal.woff2") format("woff2");
+  font-weight: 800;
+  font-display: swap;
+}
+
+@theme {
+  /* HUD / objectives / signs */
+  --font-typewriter: "Special Elite", "Courier New", monospace;
+  /* Lobby UI */
+  --font-lobby: "Fredoka", ui-rounded, system-ui, sans-serif;
+  /* Step banner */
+  --font-banner: "Montserrat", system-ui, sans-serif;
+}
+
+@utility font-banner {
+  font-family: var(--font-banner);
+  font-weight: 800;
+}
+
+/* Dark outline used on HUD text. */
+@utility text-outline {
+  -webkit-text-stroke: 2px #1a1a1a;
+  paint-order: stroke fill;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #1f6b3a;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* "+$2.10" after selling at the grinder: float up and fade out once. */
+@keyframes salePop {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  70% { opacity: 1; transform: translate(-50%, -30px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -60px) scale(1); }
+}
+.sale-pop { animation: salePop 1.8s ease-out forwards; }
+
+/* Treasure card: drop in, hold, fade. */
+.find-pop { animation: findPop 3.2s ease-out forwards; }
+@keyframes findPop {
+  0% { opacity: 0; transform: translate(-50%, -24px) scale(0.85); }
+  10% { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  16% { transform: translate(-50%, 0) scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(1); }
+}
+
+/* Adventure complete confetti + dialogue line fade. */
+.confetti { animation-name: confettiFall; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes confettiFall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(40px, 105vh, 0) rotate(720deg); opacity: 0.6; }
+}
+.dialogue-line { animation: dialogueIn 0.25s ease-out; }
+@keyframes dialogueIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Run HUD banner pill + bobbing grinder arrow. */
+.hud-banner { background: rgba(29, 20, 12, 0.72); border-color: rgba(255, 210, 63, 0.75); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+.hud-banner[data-urgent="1"] { border-color: #ff8a3a; background: rgba(70, 22, 10, 0.78); animation: hudPulse 1.2s ease-in-out infinite; }
+@keyframes hudPulse { 50% { box-shadow: 0 0 18px rgba(255, 138, 58, 0.75); } }
+.hud-bob { animation: hudBob 1.1s ease-in-out infinite; }
+@keyframes hudBob { 50% { margin-top: 6px; } }
+
+/* First-time guide: the button it points at glows and a pointer bounces above it. */
+.tut-glow { box-shadow: 0 0 0 4px #ffd23f, 0 0 22px 6px rgba(255, 210, 63, 0.75) !important; animation: tutGlow 1s ease-in-out infinite; }
+.tut-glow::after { content: "👇"; position: absolute; left: 50%; top: -2.2em; transform: translateX(-50%); font-size: 1.6rem; animation: tutPoint 0.8s ease-in-out infinite; pointer-events: none; }
+@keyframes tutGlow { 50% { box-shadow: 0 0 0 6px #fff2a8, 0 0 30px 10px rgba(255, 210, 63, 0.9) !important; } }
+@keyframes tutPoint { 50% { top: -2.7em; } }

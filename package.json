@@ -1,0 +1,16 @@
+{
+  "name": "jungle-game",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Low-poly co-op jungle grass-cutting game (working title)",
+  "scripts": {
+    "postinstall": "npm --prefix client install && npm --prefix server install",
+    "dev": "concurrently -k -n client,server -c green,cyan \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+    "build": "npm --prefix server run build && npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

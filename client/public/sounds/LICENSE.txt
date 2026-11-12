@@ -1,0 +1,9 @@
+Sound effects in this folder (converted to mono MP3 for Safari/iOS support) are by Kenney (https://kenney.nl), CC0 1.0 Universal
+(public domain dedication, https://creativecommons.org/publicdomain/zero/1.0/).
+
+Source: KenneyNL GitHub starter kits, whose READMEs state the sound effects are CC0:
+  coin.mp3, jump.mp3, land.mp3, walking.mp3, break.mp3  <- Starter-Kit-3D-Platformer/sounds
+  equip.mp3 (from weapon_change.ogg)                          <- Starter-Kit-FPS/sounds
+
+All other game sounds (swing, rustle, UI, grinder, plane engine/crash, jungle and lobby
+ambience) are synthesized at runtime with the Web Audio API (no files).
