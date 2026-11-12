@@ -2,6 +2,7 @@ import type { BufferGeometry } from "three";
 import { PartBuilder } from "../../world/geo/PartBuilder";
 import { mulberry32 } from "../../world/geo/rng";
 import type { NpcLook } from "../../config/adventures";
+import { climber, collector, fogWitch, gorillaChief, ranger, yodeler } from "./npcModels2";
 
 /**
  * Quest-giver characters: chunky blocky people (and one frog, one golden
@@ -24,7 +25,7 @@ const shade = (hex: string, k: number) => {
 };
 
 /** A friendly blocky person: proper face (eyes with whites and pupils, brows, nose, ears, cheeks, smile), neck, collar, belt, cuffs, soled shoes. */
-function person(b: PartBuilder, p: Person) {
+export function person(b: PartBuilder, p: Person) {
   const top = p.shirtTop ?? p.shirt;
   for (const s of [-1, 1]) {
     b.box([0.26, 0.75, 0.28], { pos: [s * 0.16, 0.42, 0], color: p.pants, top: shade(p.pants, 1.15) });
@@ -162,7 +163,7 @@ function monkeyKing(b: PartBuilder) {
   b.cyl(0.08, 0.06, 1.0, 6, { pos: [0.7, 0.95, 0.35], rot: [0, 0, -0.3], color: "#f2d43a" });
 }
 
-const MAKERS: Record<NpcLook, (b: PartBuilder) => void> = { pilot, professor, frog, monk, monkeyKing, botanist };
+const MAKERS: Record<NpcLook, (b: PartBuilder) => void> = { pilot, professor, frog, monk, monkeyKing, botanist, ranger, climber, yodeler, fogWitch, gorillaChief, collector };
 
 export function npcGeometry(look: NpcLook): { solid: BufferGeometry; glow: BufferGeometry | null } {
   const b = new PartBuilder(Infinity, mulberry32(look.length * 31));

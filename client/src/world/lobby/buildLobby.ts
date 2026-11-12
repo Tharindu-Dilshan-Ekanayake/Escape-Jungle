@@ -1,11 +1,14 @@
-import { LOBBY_LAYOUT } from "@shared";
+import { LOBBY_LAYOUT, CHAPTERS } from "@shared";
 import { LOBBY_VIEW as L } from "../../config/lobby";
 import { CHUNK_SIZE } from "../../config/world";
 import { PartBuilder, type ChunkGeometry } from "../geo/PartBuilder";
 import { mulberry32 } from "../geo/rng";
 import { toWorld, type Collider, type LocalCollider, type Region } from "../../game/player/collision";
 import { bush, tree } from "../props/nature";
-import { addLobbyDecor, BIG_SIGN } from "./lobbyDecor";
+import { addLobbyDecor, BIG_SIGNS } from "./lobbyDecor";
+
+/** Pad number glow per map (Overgrowth lime, Misty Gorge mist blue, Sunken Temple gold). */
+const MAP_GLOW: Record<number, string> = { 1: "#d6ff4a", 2: "#8fe0ff", 3: "#ffd27a" };
 import type { BannerSpec } from "../banners/banners";
 import { bench, board, fence, flowerBed, lamp, parkTree, planter } from "./lobbyProps";
 import { boardwalk, expeditionPad, padSignFrame } from "./padSigns";
@@ -64,13 +67,11 @@ export function buildLobby(): LobbyBuild {
 
   // Expedition pads (positions shared with the server): a wooden boardwalk under each row,
   // each pad a worn plank square with a glowing outline and a live signboard behind it.
-  const xs = LOBBY_LAYOUT.pads.map((p) => p.x);
-  const firstX = Math.min(...xs) - LOBBY_LAYOUT.padSize / 2 - 0.8;
-  const lastX = Math.max(...xs) + LOBBY_LAYOUT.padSize / 2 + 0.8;
-  for (const rowZ of [...new Set(LOBBY_LAYOUT.pads.map((p) => p.z))]) boardwalk(b, firstX, lastX, rowZ);
+  const half = LOBBY_LAYOUT.padSize / 2 + 0.8;
+  for (const a of LOBBY_LAYOUT.areas) for (const rowZ of [-9, -15]) boardwalk(b, a.x - 3 - half, a.x + 3 + half, rowZ);
   LOBBY_LAYOUT.pads.forEach((p, i) => {
     b.push([p.x, 0, p.z]);
-    expeditionPad(b, LOBBY_LAYOUT.padSize, p.size);
+    expeditionPad(b, LOBBY_LAYOUT.padSize, p.size, MAP_GLOW[p.chapter] ?? MAP_GLOW[1]);
     b.pop();
     padSignFrame(b, colliders, i);
   });
@@ -90,8 +91,12 @@ export function buildLobby(): LobbyBuild {
 
   // Mosaic, paths, lawn islands, string lights, welcome arch.
   addLobbyDecor(b, colliders);
-  // The big expedition sign behind the pads.
-  banners.push({ text: "JUNGLE EXPEDITION", sub: "Step on a glowing pad to play", x: BIG_SIGN.x, y: BIG_SIGN.y, z: BIG_SIGN.z + 0.04, rotY: 0, w: BIG_SIGN.halfW * 2, h: BIG_SIGN.h, style: "gold" });
+  // A big sign behind each expedition area: which map it opens, and how to unlock it.
+  for (const sg of BIG_SIGNS) {
+    const map = CHAPTERS.find((c) => c.n === sg.chapter);
+    const sub = !map?.playable ? "Coming soon" : sg.chapter === 1 ? "Step on a glowing pad to play" : `Escape map ${sg.chapter - 1} to unlock`;
+    banners.push({ text: `MAP ${sg.chapter}: ${map?.name.toUpperCase() ?? ""}`, sub, x: sg.x, y: sg.y, z: sg.z + 0.04, rotY: 0, w: sg.halfW * 2, h: sg.h, style: "gold" });
+  }
 
   // Fence around the plaza.
   const m = 0.6;

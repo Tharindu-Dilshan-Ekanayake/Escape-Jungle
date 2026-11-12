@@ -108,7 +108,7 @@ export function AdventureSystem({ fields }: { fields: GrassField[] }) {
       n.group.rotation.y = cur + Math.atan2(Math.sin(want - cur), Math.cos(want - cur)) * 0.08;
       n.group.position.y = Math.abs(Math.sin(t * 2 + i)) * 0.04;
       n.group.scale.y = 1 + Math.sin(t * 2.2 + i) * 0.015;
-      const top = a.def.npc.look === "monkeyKing" ? 3.1 : a.def.npc.look === "frog" ? 2.4 : 2.75;
+      const top = a.def.npc.look === "monkeyKing" || a.def.npc.look === "gorillaChief" ? 3.1 : a.def.npc.look === "frog" ? 2.4 : 2.75;
       if (a.state === ST.New) marker(a.npc.x, top, a.npc.z, YELLOW, 1.2);
       else if (a.state === ST.Ready) marker(a.npc.x, top, a.npc.z, GREEN, 1.2);
     });

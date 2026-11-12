@@ -62,6 +62,8 @@ import { RUN_RULES } from "@shared";
 import { useGameStore } from "../../store/gameStore";
 import { EscapeSystem } from "../../game/escape/EscapeSystem";
 import { TutorialSystem } from "../../game/tutorial/TutorialSystem";
+import { applyChapter, chapterData } from "../../config/chapters";
+import { refreshStations } from "../../game/economy/StationSystem";
 
 /** The crash site's fire is already burning when you land (seconds). */
 const CRASH_FIRE_SECONDS = RUN_RULES.crashFireSeconds;
@@ -77,7 +79,14 @@ export default function Chapter1Scene() {
   const run = useGameStore((s) => s.run);
   const partyColors = useMemo(() => colorsFor("me"), []);
 
-  const world = useMemo(() => buildChapter1(), []);
+  // Load the picked map's data before anything is built from it.
+  const chapter = run?.chapter ?? 1;
+  const world = useMemo(() => {
+    applyChapter(chapter);
+    refreshStations();
+    return buildChapter1();
+  }, [chapter]);
+  const intro = chapterData().intro;
   const ground = useMemo(() => buildGround(), []);
   const materials = useMemo(
     () => ({
@@ -97,7 +106,7 @@ export default function Chapter1Scene() {
     resetFoodStore();
     createAdventures(world.zones, world.camps, campfireSpots());
     // Quest givers are solid (the Monkey King's throne is bigger).
-    for (const adv of adventures.list) world.colliders.push({ kind: "circle", x: adv.npc.x, z: adv.npc.z, r: adv.def.npc.look === "monkeyKing" ? 1.15 : 0.5 });
+    for (const adv of adventures.list) world.colliders.push({ kind: "circle", x: adv.npc.x, z: adv.npc.z, r: adv.def.npc.look === "monkeyKing" || adv.def.npc.look === "gorillaChief" ? 1.15 : 0.5 });
   }, [world]);
   // Uncut plants block movement: test the step one axis at a time against the
   // cell grid (slide along edges; never squeezes through; can always walk out).
@@ -159,6 +168,11 @@ export default function Chapter1Scene() {
       applyPlayerSave(run.resume);
       note("Welcome back! Your expedition continues.");
       begin();
+    } else if (!chapterData().intro) {
+      // Later maps start straight in the camp.
+      const start = chapterData().startNote;
+      if (start) note(start);
+      begin();
     } else {
       // Plane-crash intro first; gameplay (and the SDK gameplay screen) starts when it ends or is skipped.
       offEnd = onCutsceneEnd(begin);
@@ -215,10 +229,10 @@ export default function Chapter1Scene() {
       <NightEyes />
       <LeafParticles count={preset.particleCap} />
       <CoinBurst />
-      <IntroCutscene smoke={preset.smoke} />
-      {preset.smoke > 0 && <SmokeParticles />}
-      <WreckFire />
-      <FarPlume />
+      {intro && <IntroCutscene smoke={preset.smoke} />}
+      {intro && preset.smoke > 0 && <SmokeParticles />}
+      {intro && <WreckFire />}
+      {intro && <FarPlume />}
       <LightShafts />
       <EscapeSystem />
       <TutorialSystem />

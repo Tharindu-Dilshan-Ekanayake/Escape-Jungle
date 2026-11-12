@@ -39,6 +39,13 @@ export const PLANT_TYPES: Record<number, PlantType> = {
   4: plant(4, "bamboo", "Bamboo", "bamboo", [2.6, 3.4], ["#a6d84a", "#c2e65a", "#8fc63c", "#d8ee70", "#9ccf48"]),
   5: plant(5, "banana", "Banana Plant", "banana", [1.8, 2.5], ["#5fbf4a", "#78cf55", "#4aa83f", "#8fdc5f", "#3f9a3a"]),
   6: plant(6, "flowerBush", "Flower Bush", "flowerBush", [1.0, 1.4], ["#ffffff", "#ffe9f4", "#fff4d6"]),
+  // Misty Gorge (chapter 2).
+  7: plant(7, "mistFern", "Mist Fern", "fern", [1.3, 1.8], ["#7fa896", "#93b8a4", "#6a9480", "#a4c4b0", "#5f8a76"]),
+  8: plant(8, "gorgeReeds", "Gorge Reeds", "reeds", [2.0, 2.6], ["#8a9a6a", "#9aaa78", "#7a8a5c", "#a8b886", "#6e7e52"]),
+  9: plant(9, "ironBamboo", "Iron Bamboo", "bamboo", [2.8, 3.5], ["#5f8a5a", "#6f9a64", "#4f7a4c", "#7faa6e", "#557f50"]),
+  10: plant(10, "ghostGrass", "Ghost Grass", "grass", [1.7, 2.3], ["#c4d4c8", "#b4c8bc", "#d4e0d6", "#a8bcae", "#e0eae2"]),
+  11: plant(11, "thornBush", "Thorn Bush", "flowerBush", [1.2, 1.6], ["#c86a7a", "#a8505e", "#e08a96", "#b85a6a"]),
+  12: plant(12, "giantBanana", "Giant Banana", "banana", [2.3, 3.0], ["#4f9a6a", "#5faa78", "#3f8a5a", "#6fba86", "#3a7a50"]),
 };
 
 export const GRASS_RENDER = {

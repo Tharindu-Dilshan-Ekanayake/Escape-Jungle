@@ -1,7 +1,7 @@
 /**
  * Lobby hub visuals (positions shared with the server live in @shared/lobby).
- * Compact plaza: spawn at the south, glowing arrows to two rows of party
- * pads at the north, a waterfall cliff behind them, leaderboards west,
+ * Plaza: spawn at the south, glowing arrows to three expedition areas at
+ * the north (one per map), a waterfall cliff behind them, leaderboards west,
  * bouncy mushrooms for fun. No shops (Boxity handles the store).
  */
 export const LOBBY_VIEW = {
@@ -14,7 +14,7 @@ export const LOBBY_VIEW = {
   /** Compass mosaic in the middle of the plaza. */
   centre: { x: 0, z: 1, r: 3.6 },
   parkTrees: [
-    [15.5, 9], [15.5, -1], [-16, -15], [16, -15],
+    [15.5, 9], [15.5, -1], [-11, -19], [11, -19],
   ] as [number, number][],
   /** Benches facing the plaza centre: [x, z]. */
   benches: [
@@ -41,8 +41,8 @@ export const LOBBY_VIEW = {
   planters: [
     [-3.4, 12.4], [3.4, 12.4],
   ] as [number, number][],
-  trees: { count: 36, minR: 28, maxR: 52 },
-  bushes: { count: 70, minR: 25, maxR: 40 },
+  trees: { count: 40, minR: 36, maxR: 58 },
+  bushes: { count: 76, minR: 33, maxR: 46 },
   bunting: { colors: ["#ff5a5a", "#ffd23f", "#4cc3f0", "#7bdc4f", "#b77bff"] },
   /** Glowing chevrons on the ground from the spawn to the pads. */
   arrows: { x: 0, fromZ: 7.2, toZ: -4.6, step: 1.45 },

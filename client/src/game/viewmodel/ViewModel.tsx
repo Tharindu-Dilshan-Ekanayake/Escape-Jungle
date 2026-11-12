@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { DirectionalLight, Group, HemisphereLight, PerspectiveCamera, PointLight, Scene, Vector3 } from "three";
+import { DirectionalLight, Group, HemisphereLight, Mesh, MeshLambertMaterial, PerspectiveCamera, PointLight, Scene, Vector3 } from "three";
+import { avatarBase, loadArmGeometry, materialFor, skinTextureUrl } from "../avatar/boxity/avatarAssets";
+import { onLocalLook } from "../../net/localLook";
 import { buildToolRig } from "./toolModels";
 import { adaptiveFov } from "../fov";
 import { SwingTrail } from "./SwingTrail";
@@ -69,6 +71,46 @@ export function ViewModel() {
     scene.add(trail.mesh);
     return { scene, camera, hemi, sun, fire, pivot, rig, trail, bob: 0, equipT: 1, tool: "" as string, time: 0 };
   }, []);
+
+  // The player's own Boxity arm (their skin + shirt texture) instead of the drawn hand.
+  useEffect(() => {
+    let alive = true;
+    let arm: Mesh | null = null;
+    let offLook = () => {};
+    loadArmGeometry()
+      .then((geo) => {
+        if (!alive) return;
+        const a = VM.arm;
+        arm = new Mesh(geo, new MeshLambertMaterial({ color: a.fallbackColor }));
+        // Hand end wraps the grip; the arm runs down and back toward the camera.
+        const d = new Vector3(...a.dir).normalize();
+        arm.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), d);
+        arm.rotateY(a.twist);
+        arm.scale.set(a.thickness, a.length, a.thickness);
+        arm.position.copy(d).multiplyScalar(-a.overhang).add(new Vector3(...a.offset));
+        vm.pivot.add(arm);
+        vm.rig.hand.visible = false;
+        offLook = onLocalLook((l) => {
+          const fallback = avatarBase() + "/skins/0.png";
+          void materialFor(l.skinUrl ?? skinTextureUrl(l.look), false)
+            .catch(() => materialFor(fallback, false))
+            .then((m) => {
+              if (alive && arm) arm.material = m;
+            });
+        });
+      })
+      .catch(() => {
+        /* avatar CDN unreachable: keep the drawn hand */
+      });
+    return () => {
+      alive = false;
+      offLook();
+      if (arm) {
+        vm.pivot.remove(arm);
+        vm.rig.hand.visible = true;
+      }
+    };
+  }, [vm]);
 
   useEffect(() => {
     vm.camera.aspect = size.width / Math.max(1, size.height);

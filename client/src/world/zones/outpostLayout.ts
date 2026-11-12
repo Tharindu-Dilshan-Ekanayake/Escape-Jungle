@@ -1,5 +1,6 @@
 import { ZONES1 } from "../../config/zones1";
 import { OUTPOST_PLAN as K } from "../../config/outpostPlan";
+import { chapterState } from "../../config/chapters";
 
 /**
  * Deterministic outpost layout (every client computes the same): see
@@ -33,7 +34,13 @@ const D = Math.PI / 180;
 
 const cache = new Map<number, OutpostPlan>();
 
+let cacheVersion = -1;
+
 export function outpostPlan(i: number): OutpostPlan {
+  if (cacheVersion !== chapterState.version) {
+    cache.clear();
+    cacheVersion = chapterState.version;
+  }
   const hit = cache.get(i);
   if (hit) return hit;
   const zn = ZONES1[i];

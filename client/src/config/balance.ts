@@ -7,6 +7,13 @@ export const BALANCE = {
     bamboo: { hp: 3, blades: 2, value: 0.035, tier: 2 },
     banana: { hp: 3, blades: 2, value: 0.045, tier: 2 },
     flowerBush: { hp: 4, blades: 3, value: 0.05, tier: 2 },
+    // Misty Gorge (chapter 2): tougher, and most need a better tool.
+    mistFern: { hp: 2, blades: 1, value: 0.03, tier: 1 },
+    gorgeReeds: { hp: 3, blades: 2, value: 0.04, tier: 2 },
+    ironBamboo: { hp: 5, blades: 2, value: 0.05, tier: 3 },
+    ghostGrass: { hp: 4, blades: 2, value: 0.055, tier: 3 },
+    giantBanana: { hp: 6, blades: 3, value: 0.065, tier: 4 },
+    thornBush: { hp: 7, blades: 3, value: 0.075, tier: 4 },
   },
   bag: {
     levels: [150, 225, 300, 400, 475, 600, 750, 900, 1100, 1300],
