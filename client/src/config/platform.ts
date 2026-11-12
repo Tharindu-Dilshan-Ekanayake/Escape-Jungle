@@ -2,14 +2,15 @@
  * Boxity platform config (docs/SDK.md). Keep every platform constant here.
  */
 
-/** Slug this game is registered under on bloxity.io. TODO: replace before first deploy. */
-export const BOXITY_GAME_SLUG = "MY_GAME_SLUG";
+/** Slug this game is registered under on bloxity.io (change here if the portal slug differs from the hosting id). */
+export const BOXITY_GAME_SLUG = "escape-the-jungle";
 
 /**
- * Boxity hosting id of the Colyseus backend (<id>.host.bloxity.io), or null
- * when the server is not hosted on Boxity. Set in Phase 9.
+ * Boxity hosting id of the Colyseus backend (<id>.host.bloxity.io). Production
+ * builds connect through the Boxity matchmaker (Legion.SDK.net.resolveEndpoint);
+ * `npm run dev` (null here) uses the local server below.
  */
-export const BOXITY_HOSTING_ID: string | null = null;
+export const BOXITY_HOSTING_ID: string | null = import.meta.env.PROD ? "escape-the-jungle" : null;
 
 /** Local dev Colyseus endpoint, used only when BOXITY_HOSTING_ID is null. */
 // Dev only: `?server=ws://localhost:2667` points the client at another local server (testing).

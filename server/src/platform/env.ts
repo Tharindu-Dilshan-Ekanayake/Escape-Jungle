@@ -10,5 +10,5 @@ export const bloxityEnv = {
   portalUrl: process.env.BLOXITY_PORTAL_URL ?? "https://bloxity.io",
   staticUrl: process.env.BLOXITY_STATIC_URL ?? "https://static.bloxity.io",
   /** Slug this game is registered under on bloxity.io. */
-  gameSlug: process.env.BLOXITY_GAME_SLUG ?? "MY_GAME_SLUG",
+  gameSlug: process.env.BLOXITY_GAME_SLUG ?? process.env.BLOXITY_GAME_ID ?? "escape-the-jungle",
 } as const;
