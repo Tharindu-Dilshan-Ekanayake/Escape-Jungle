@@ -6,10 +6,10 @@ export const LOBBY_LAYOUT = {
   /** Walkable plaza (compact: everything is a short walk away). */
   bounds: { minX: -20, maxX: 20, minZ: -20, maxZ: 14 },
   spawn: { x: 0, z: 10, yaw: 0, scatter: 2 },
-  /** Party pads: two rows of four at the north end (front row first). */
+  /** Expedition pads: two rows of four at the north end (front row first), crew size 1-2-3-4 left to right. */
   pads: [
-    ...[-9, -3, 3, 9].map((x) => ({ x, z: -9 })),
-    ...[-9, -3, 3, 9].map((x) => ({ x, z: -15 })),
+    ...[-9, -3, 3, 9].map((x, i) => ({ x, z: -9, size: i + 1 })),
+    ...[-9, -3, 3, 9].map((x, i) => ({ x, z: -15, size: i + 1 })),
   ],
   padSize: 4.6,
 } as const;
@@ -19,16 +19,22 @@ export const LOBBY_RULES = {
   moveHz: 15,
   /** Max plausible speed (m/s) incl. slack; faster updates are clamped. */
   maxSpeed: 9,
-  /** Seconds of countdown when the host presses START. */
-  hostCountdown: 3,
-  /** Seconds of countdown when a pad fills up on its own. */
-  fullCountdown: 5,
-  defaultPartySize: 4,
-  /** Seconds a dropped player keeps their slot. */
-  reconnectSeconds: 15,
-  /** Chapters that can be started (later chapters unlock in Phase 5+). */
-  unlockedChapters: [1],
+  /** Seconds of countdown once a pad's crew is complete (time to pick the map). */
+  fullCountdown: 8,
+  /** Seconds a dropped player (network trouble, reload) keeps their seat and their place in the run. */
+  reconnectSeconds: 60,
 } as const;
+
+/** The jungle maps, in order. playable = built (the others show as coming soon). */
+export const CHAPTERS = [
+  { n: 1, name: "The Overgrowth", playable: true },
+  { n: 2, name: "Misty Gorge", playable: false },
+  { n: 3, name: "Sunken Temple", playable: false },
+] as const;
+
+/** A map opens once you escaped the one before it (the first is always open). best = highest chapter escaped. */
+export const chapterUnlocked = (n: number, best: number) => n === 1 || best >= n - 1;
+export const chapterPlayable = (n: number) => CHAPTERS.some((c) => c.n === n && c.playable);
 
 /** Index of the pad containing (x, z), or -1. */
 export function padAt(x: number, z: number): number {

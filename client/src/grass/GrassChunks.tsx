@@ -71,7 +71,8 @@ export function GrassChunks({ field }: { field: GrassField }) {
   useFrame(({ camera, clock }, dt) => {
     const now = clock.elapsedTime;
     grass.uniforms.uTime.value = now;
-    field.update(now);
+    // Same clock as every cut() (local and teammates'): performance.now(), not the canvas clock.
+    field.update(performance.now() / 1000);
     for (let i = 0; i < meshes.length; i++) {
       const ch = field.chunks[i];
       if (ch.dirty) {

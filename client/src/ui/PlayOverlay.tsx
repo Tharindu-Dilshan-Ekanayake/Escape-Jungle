@@ -27,11 +27,6 @@ export function PlayOverlay() {
   if (!ready) return null;
   if (cinematic) return <CutsceneOverlay />;
 
-  const hint =
-    scene === "run"
-      ? "WASD move · Mouse look · Hold click cut · TAB upgrades · M map · E use · F eat · L leave · Esc release"
-      : "WASD move · Mouse look · Space jump · Esc release";
-
   return (
     <>
       <Suspense fallback={null}>{scene === "run" ? <RunHud /> : <LobbyHud />}</Suspense>
@@ -64,7 +59,6 @@ export function PlayOverlay() {
             className="fixed left-1/2 top-[26%] z-20 -translate-x-1/2 rounded-xl bg-black/45 px-6 py-3 text-center text-white"
           >
             <span className="block font-lobby text-outline text-3xl font-bold">Click to play</span>
-            <span className="block font-lobby text-sm text-white/85">{hint}</span>
           </button>
         )
       )}

@@ -4,3 +4,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Local dev expedition saves (production uses the managed Mongo database)
+.data/

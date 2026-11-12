@@ -8,7 +8,9 @@ import { helicopterBody, helicopterRotor } from "../../world/props/helicopter";
 import { noiseBurst, sfx } from "../audio/sfx";
 import { SFX } from "../../config/audio";
 import { markFinished, progress } from "../progress/progress";
-import { ESCAPE, escape, escapeTime, resetEscape } from "./escape";
+import { sendRunFinished } from "../save/runSave";
+import { ESCAPE, escape, escapeTime, resetEscape, startEscape } from "./escape";
+import { runHandlers } from "../../net/runNet";
 
 const PAD = ZONES1[ZONES1.length - 1].base;
 const look = new Vector3();
@@ -42,8 +44,15 @@ export function EscapeSystem() {
 
   useEffect(() => {
     resetEscape();
+    // Crew boarding (server): who is aboard, then everyone takes off together.
+    runHandlers.boarding = (m) => {
+      escape.aboard = m;
+    };
+    runHandlers.depart = () => startEscape();
     return () => {
       resetEscape();
+      runHandlers.boarding = null;
+      runHandlers.depart = null;
       r.body.geometry.dispose();
       r.rotor.geometry.dispose();
       r.mat.dispose();
@@ -86,6 +95,7 @@ export function EscapeSystem() {
     camera.updateMatrixWorld();
     if (t > ESCAPE.spinUpS + ESCAPE.flyS && !progress.finished) {
       markFinished();
+      sendRunFinished(); // the save is done with: the next expedition starts fresh
       sfx.upgrade();
     }
   });

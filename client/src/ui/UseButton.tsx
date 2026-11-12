@@ -61,9 +61,6 @@ export function UseButton() {
   if (!state) return null;
   return (
     <div className="absolute flex flex-col items-center" style={{ right: L.right, bottom: L.bottom, width: L.size }}>
-      <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-max max-w-[46vw] rounded-lg bg-black/70 px-2 py-1 text-center font-lobby text-xs font-bold leading-tight text-white shadow">
-        {state.label}
-      </div>
       <button
         type="button"
         aria-label={state.label}

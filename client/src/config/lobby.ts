@@ -90,6 +90,9 @@ export const AVATAR_ASSETS = {
   /** Our avatar height (m); the rig is 6.4 units tall with feet at y = 0. */
   height: 2.0,
   rigHeight: 6.4,
+  /** Tools in other players' hands: bigger than life so they read from a distance, raised forward (rad above level). */
+  heldToolScale: 1.8,
+  heldToolRaise: 0.95,
   /** Downscale any item/skin texture above this (px). */
   maxTexture: 256,
   /** Remote avatars beyond this distance are not drawn (m). */

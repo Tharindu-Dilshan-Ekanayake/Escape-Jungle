@@ -6,6 +6,8 @@ import { getSDK } from "../platform/boxity";
 import { setMasterVolume } from "../game/audio";
 import type { QualityLevel } from "../config/quality";
 import { Panel } from "./Panel";
+import { useGameStore } from "../store/gameStore";
+import { leaveRun } from "../net/lobbyConnection";
 
 const QUALITY_LABEL: Record<QualityLevel, string> = { LOW: "Low", MEDIUM: "Medium", HIGH: "High" };
 
@@ -22,6 +24,7 @@ export function SettingsPanel() {
   const sens = usePlatformStore((s) => s.cameraSensitivity);
   const fps = useDebugStore((s) => s.overlayVisible);
   const close = () => useUiStore.getState().openPanel(null);
+  const inRun = useGameStore((s) => s.scene === "run");
 
   const setQuality = (q: QualityLevel) => {
     useQualityStore.getState().setRequested(q);
@@ -99,6 +102,18 @@ export function SettingsPanel() {
             className="h-6 w-6 accent-[#4cc12e]"
           />
         </label>
+        {inRun && (
+          <button
+            type="button"
+            onClick={() => {
+              close();
+              leaveRun();
+            }}
+            className="w-full rounded-xl border-b-4 border-[#8a2a1a] bg-gradient-to-b from-[#ff7a5a] to-[#d63a2f] py-2.5 text-lg font-bold text-white shadow active:translate-y-0.5"
+          >
+            🚪 Leave expedition <span className="text-sm font-semibold opacity-80">(progress is saved · L)</span>
+          </button>
+        )}
       </div>
     </Panel>
   );

@@ -8,10 +8,10 @@ import { player } from "../player/FirstPersonController";
 import { cutscene } from "../../cutscene/cutsceneState";
 import { note } from "../survival/survival";
 import { sfx } from "../audio/sfx";
-import { runHandlers } from "../../net/runNet";
+import { onRunSync, runHandlers } from "../../net/runNet";
 import { npcGeometry } from "./npcModels";
 import { butterflyGlowGeometry, frogGeometry, lanternFlameGeometry, lanternGeometry, markerGeometry, suitcaseGeometry } from "./questModels";
-import { addProgress, adventures, butterflyTimeLeft, ST, type Adventure } from "./adventures";
+import { addProgress, adventures, applyShared, butterflyTimeLeft, ST, type Adventure } from "./adventures";
 
 const dummy = new Object3D();
 const MARKERS = 24;
@@ -67,8 +67,12 @@ export function AdventureSystem({ fields }: { fields: GrassField[] }) {
 
   useEffect(() => {
     runHandlers.prize = () => monkeyCaught();
+    runHandlers.adv = (m) => applyShared(m, m.by ?? null, false);
+    const offSync = onRunSync((p) => p.adv?.forEach((st) => applyShared(st, null, true)));
     return () => {
       runHandlers.prize = null;
+      runHandlers.adv = null;
+      offSync();
       r.solid.dispose();
       r.glow.dispose();
       for (const n of r.npcs) n.geos.forEach((g) => g?.dispose());

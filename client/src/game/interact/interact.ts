@@ -12,6 +12,19 @@ import { CAMPFIRE } from "../../config/night";
 import { loot } from "../loot/loot";
 import { RUN_RULES } from "@shared";
 import { ESCAPE, escape, startEscape } from "../escape/escape";
+import { runNet, sendBoard } from "../../net/runNet";
+
+/** Solo / offline: off you go. A crew: the helicopter leaves when everyone still in the run is aboard. */
+function boardHelicopter() {
+  if (!runNet.online) {
+    startEscape();
+    return;
+  }
+  escape.boardedMe = true;
+  sendBoard();
+  note("🚁 You're aboard! It takes off when the whole crew is in");
+  sfx.click();
+}
 import { ZONES1 } from "../../config/zones1";
 
 /**
@@ -67,8 +80,13 @@ export function findAction(px: number, pz: number, now: number): { key: string; 
   }
   // The way out: board the rescue helicopter at the plane wreck.
   const exitPad = ZONES1[ZONES1.length - 1].base;
-  if (!escape.active && near(exitPad.x, exitPad.z, px, pz, ESCAPE.boardRadius))
-    return { key: "board-heli", action: { label: "Board the helicopter 🚁", act: () => startEscape() } };
+  if (!escape.active && near(exitPad.x, exitPad.z, px, pz, ESCAPE.boardRadius)) {
+    if (escape.boardedMe) {
+      const a = escape.aboard;
+      return { key: `heli-wait-${a?.n ?? 1}`, action: { label: `Aboard! Waiting for the crew ${a ? `${a.n}/${a.total}` : ""}`, act: null } };
+    }
+    return { key: "board-heli", action: { label: "Board the helicopter 🚁", act: () => boardHelicopter() } };
+  }
   // Firewood trees: take logs from a pile, or chop a standing tree (USE swings at it too).
   for (let i = 0; i < chop.trees.length; i++) {
     const t = chop.trees[i];

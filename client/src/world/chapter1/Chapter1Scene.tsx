@@ -50,7 +50,8 @@ import { adventures, createAdventures } from "../../game/adventure/adventures";
 import { campfireSpots } from "../../game/campfire/campfires";
 import { SurvivalSystem } from "../../game/survival/SurvivalSystem";
 import { ForageSystem } from "../../game/interact/ForageSystem";
-import { resetSurvival } from "../../game/survival/survival";
+import { note, resetSurvival } from "../../game/survival/survival";
+import { applyPlayerSave, startAutoSave } from "../../game/save/runSave";
 import { resetFoodStore } from "../../game/survival/foodStore";
 import { setBurn } from "../../game/campfire/campfires";
 import { AvatarLayer } from "../../game/avatar/boxity/BoxityAvatars";
@@ -143,17 +144,30 @@ export default function Chapter1Scene() {
     setAvatarScope(run?.runId ?? "solo");
     beginRun(!!run && !run.solo);
     markReady();
-    // Plane-crash intro first; gameplay (and the SDK gameplay screen) starts when it ends or is skipped.
-    const offEnd = onCutsceneEnd(() => {
+    const begin = () => {
       startRunTimer();
       gameplayStart();
       reportScreen("gameplay");
-    });
-    const stopIntroAudio = startIntroAudio();
-    const offAudioEnd = onCutsceneEnd(stopIntroAudio);
+    };
     const stopAmbience = startAmbience("jungle");
-    startCutscene();
+    const stopAutoSave = startAutoSave();
+    let offEnd = () => {};
+    let offAudioEnd = () => {};
+    let stopIntroAudio = () => {};
+    if (run?.resume) {
+      // Continuing a saved expedition: no intro, straight back to where we stopped.
+      applyPlayerSave(run.resume);
+      note("Welcome back! Your expedition continues.");
+      begin();
+    } else {
+      // Plane-crash intro first; gameplay (and the SDK gameplay screen) starts when it ends or is skipped.
+      offEnd = onCutsceneEnd(begin);
+      stopIntroAudio = startIntroAudio();
+      offAudioEnd = onCutsceneEnd(stopIntroAudio);
+      startCutscene();
+    }
     return () => {
+      stopAutoSave();
       offEnd();
       offAudioEnd();
       stopIntroAudio();

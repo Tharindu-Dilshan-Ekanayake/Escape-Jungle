@@ -10,6 +10,7 @@ import { addCash } from "../economy/economy";
 import { note, survival, bumpSurvival } from "../survival/survival";
 import { sfx } from "../audio/sfx";
 import type { Action } from "../interact/interact";
+import { sendAdv } from "../../net/runNet";
 
 /**
  * Per-player mini adventures (one per area). Mutable; the HUD polls `version`.
@@ -33,6 +34,8 @@ export interface Adventure {
   items: AdvItem[];
   npc: { x: number; z: number; yaw: number };
   startedAt: number;
+  /** This player already got the reward (crew quests pay everyone once). */
+  rewarded: boolean;
 }
 
 export interface Dialogue {
@@ -95,7 +98,7 @@ export function createAdventures(zones: { zone: ZoneDef; field: GrassField }[], 
       : def.id === "butterflies"
         ? Array.from({ length: def.count }, (_, k) => ({ x: (rect.minX + rect.maxX) / 2, z: (rect.minZ + rect.maxZ) / 2 + k, zone: def.zone, cell: -1, got: false }))
         : [];
-    return { def, state: ST.New, progress: 0, items, npc: npcSpot(def.zone), startedAt: 0 };
+    return { def, state: ST.New, progress: 0, items, npc: npcSpot(def.zone), startedAt: 0, rewarded: false };
   });
   adventures.dialogue = null;
   adventures.celebrate = null;
@@ -120,11 +123,66 @@ export function advanceDialogue() {
   bump();
 }
 
-export function complete(a: Adventure) {
+/** Tell the crew this quest changed (online runs; offline it does nothing). reset = a timed quest restarted. */
+function share(a: Adventure, reset = false) {
+  const i = adventures.list.indexOf(a);
+  if (i >= 0) sendAdv({ i, s: a.state, p: a.progress, g: gotBits(a), r: reset });
+}
+const gotBits = (a: Adventure) => a.items.reduce((m, it, k) => (it.got ? m | (1 << k) : m), 0);
+
+/** Finished: reward (once per player) and celebrate. */
+function reward(a: Adventure, crew: string | null) {
   a.state = ST.Done;
+  if (a.rewarded) return;
+  a.rewarded = true;
   addCash(a.def.reward);
-  adventures.celebrate = { title: a.def.title, icon: a.def.icon, reward: a.def.reward, at: performance.now() / 1000 };
+  adventures.celebrate = { title: crew ? `${a.def.title} (team)` : a.def.title, icon: a.def.icon, reward: a.def.reward, at: performance.now() / 1000 };
   sfx.fanfare();
+}
+
+export function complete(a: Adventure) {
+  reward(a, null);
+  share(a);
+  bump();
+}
+
+/**
+ * A crew member changed a quest (or the run sync on joining/continuing: quiet,
+ * no popups or rewards). One player talking to a quest giver, finding items
+ * or handing in counts for the whole crew; everyone gets the reward once.
+ */
+export function applyShared(st: { i: number; s: number; p: number; g: number; r?: boolean }, by: string | null, quiet: boolean) {
+  const a = adventures.list[st.i];
+  if (!a) return;
+  const was = a.state;
+  const now = performance.now() / 1000;
+  if (st.r && st.s === ST.Active) {
+    a.progress = st.p;
+    a.startedAt = now;
+    a.items.forEach((it, k) => (it.got = (st.g & (1 << k)) !== 0));
+  } else if (st.s >= a.state) {
+    a.state = st.s;
+    a.progress = Math.max(a.progress, st.p);
+    a.items.forEach((it, k) => (it.got ||= (st.g & (1 << k)) !== 0));
+  } else return; // we are ahead: our own update is on its way
+  // Two players finding the last items at once: whoever sees the full set moves it on.
+  const got = a.items.filter((it) => it.got).length;
+  if (a.state === ST.Active && a.items.length && got > a.progress) a.progress = got;
+  if (a.state === ST.Active && a.progress >= a.def.count && !quiet) {
+    if (a.def.turnIn) a.state = ST.Ready;
+    else reward(a, by);
+    share(a);
+  }
+  if (quiet) {
+    if (a.state === ST.Done) a.rewarded = true; // paid before (it is in the saved cash)
+  } else if (a.state !== was) {
+    const who = by ?? "A friend";
+    if (a.state === ST.Active) {
+      a.startedAt = now;
+      note(`${a.def.icon} ${who} started: ${a.def.title}`);
+    } else if (a.state === ST.Ready) note(`${a.def.icon} ${who} finished it! Hand it in to ${a.def.npc.name}`);
+    else if (a.state === ST.Done) reward(a, who);
+  }
   bump();
 }
 
@@ -138,6 +196,7 @@ export function addProgress(a: Adventure) {
       note(`${a.def.icon} Done! Go back to ${a.def.npc.name}`);
     } else complete(a);
   }
+  share(a);
   bump();
 }
 
@@ -150,6 +209,7 @@ function talk(a: Adventure, now: number) {
       for (const it of a.items) it.got = false;
       a.progress = 0;
       note(`${d.icon} New adventure: ${d.title}`);
+      share(a); // one talk starts it for the whole crew
       bump();
     });
   } else if (a.state === ST.Ready) {
@@ -163,6 +223,7 @@ function talk(a: Adventure, now: number) {
     bumpSurvival();
     for (let k = 0; k < give; k++) a.progress = Math.min(d.count, a.progress + 1);
     sfx.eat();
+    share(a);
     if (a.progress >= d.count) say(d.npc.name, [d.done], () => complete(a));
     else say(d.npc.name, [`MMMF! ${a.progress} of ${d.count} bananas! MORE!`]);
     bump();
@@ -177,6 +238,7 @@ function restart(a: Adventure, now: number) {
   a.progress = 0;
   a.startedAt = now;
   for (const it of a.items) it.got = false;
+  share(a, true);
   say(a.def.npc.name, ["Let's try again! 90 seconds... GO!"]);
   bump();
 }

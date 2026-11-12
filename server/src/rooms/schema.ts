@@ -21,6 +21,8 @@ export class Player extends Schema {
   @type("uint8") swing = 0;
   /** Reconnecting players are kept (frozen) for a few seconds. */
   @type("boolean") connected = true;
+  /** Highest chapter escaped (0 = none): which maps this player may pick. */
+  @type("uint8") best = 0;
 }
 
 /** One party pad. */

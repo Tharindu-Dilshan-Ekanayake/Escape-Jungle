@@ -55,13 +55,13 @@ export function CutSystem({ fields }: { fields: GrassField[] }) {
     };
   }, [fields]);
 
-  useFrame(({ clock }, dt) => {
+  useFrame((_, dt) => {
     if (cutscene.active || survival.faintAt) return;
     if (cutState.swingT >= 0) {
       cutState.swingT += dt;
       if (!cutState.hitDone && cutState.swingT >= CUTTING.hitDelay) {
         cutState.hitDone = true;
-        hit(fields, hits, clock.elapsedTime);
+        hit(fields, hits, performance.now() / 1000);
       }
       if (cutState.swingT >= cutState.swingDuration) cutState.swingT = -1;
     }
