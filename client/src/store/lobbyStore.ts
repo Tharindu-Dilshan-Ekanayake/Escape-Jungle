@@ -17,6 +17,8 @@ export interface PlayerView {
   connected: boolean;
   /** Highest chapter escaped (0 = none): which maps they may play. */
   best: number;
+  /** Own countdown (whole seconds) on a solo pad, -1 when not on one. */
+  wait: number;
 }
 
 export type NetStatus = "connecting" | "online" | "offline";

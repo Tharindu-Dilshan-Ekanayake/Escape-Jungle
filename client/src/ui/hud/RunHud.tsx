@@ -54,6 +54,7 @@ import { useLobbyStore } from "../../store/lobbyStore";
 import { sfx } from "../../game/audio/sfx";
 import { ClearBar } from "./ClearBar";
 import { TutorialCard } from "./TutorialCard";
+import { hudUrgent } from "./hudUrgent";
 import { tutorial } from "../../game/tutorial/tutorial";
 
 
@@ -105,6 +106,7 @@ function Banner() {
         ico = "✈️";
       }
       if (tutorial.active && !urgent) text = ""; // the guide card has the spot
+      hudUrgent.banner = urgent && !!text;
       const key = `${ico}|${text}|${urgent}`;
       if (key === lastKey || !box.current || !el.current || !icon.current) return;
       lastKey = key;
@@ -139,6 +141,7 @@ function GrinderArrow() {
     const id = window.setInterval(() => {
       if (!el.current || !arrow.current || !dist.current) return;
       const show = isBagFull();
+      hudUrgent.arrow = show;
       el.current.style.display = show ? "flex" : "none";
       if (!show) return;
       const g = nearestGrinder(player.x, player.z);

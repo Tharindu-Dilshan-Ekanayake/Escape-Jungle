@@ -4,16 +4,24 @@ import { Pad, type WorldState } from "./schema.js";
 /**
  * Authoritative pad occupancy. Every pad has a fixed crew size (1, 2, 3 or 4,
  * painted on it) and plays its area's map. Players standing on a pad join its
- * crew if they unlocked that map; a full pad counts down on its own and at zero the crew leaves
- * for the jungle (onStart). Someone stepping off cancels the countdown.
+ * crew if they unlocked that map; a full crew pad counts down on its own and at
+ * zero the crew leaves for the jungle (onStart). Someone stepping off cancels
+ * the countdown.
+ *
+ * A SOLO pad (size 1) is never "taken": every player standing on it has their
+ * own countdown (Player.wait) and, at zero, leaves alone in their own run, so
+ * several players can use the same solo pad at the same time.
  */
 export class PadSystem {
-  /** Seconds left per counting pad (mirrored as whole seconds into Pad.countdown). */
+  /** Seconds left per counting crew pad (mirrored as whole seconds into Pad.countdown). */
   private timers = new Map<number, number>();
+  /** Seconds left per player standing on a solo pad. */
+  private solo = new Map<string, number>();
 
   constructor(
     private state: WorldState,
-    private onStart: (pad: Pad) => void,
+    /** A crew (or one solo player) leaves for the jungle. */
+    private onStart: (chapter: number, members: string[]) => void,
     /** Highest chapter a player escaped (0 = none yet): decides which maps they may pick. */
     private bestOf: (sessionId: string) => number,
   ) {
@@ -41,6 +49,10 @@ export class PadSystem {
     });
 
     for (const pad of this.state.pads) {
+      if (pad.maxPlayers === 1) {
+        this.tickSolo(pad, dt);
+        continue;
+      }
       const full = pad.members.length > 0 && pad.members.length >= pad.maxPlayers;
       let left = this.timers.get(pad.index);
       if (left === undefined) {
@@ -56,10 +68,27 @@ export class PadSystem {
       const whole = Math.max(0, Math.ceil(left));
       if (pad.countdown !== whole) pad.countdown = whole;
       if (left <= 0) {
+        const crew = [...pad.members];
         this.timers.delete(pad.index);
-        this.onStart(pad);
         this.reset(pad);
+        this.onStart(pad.chapter, crew);
       }
+    }
+  }
+
+  /** Solo pad: each player on it counts down alone and leaves alone. */
+  private tickSolo(pad: Pad, dt: number) {
+    for (const id of [...pad.members]) {
+      const left = (this.solo.get(id) ?? LOBBY_RULES.fullCountdown) - dt;
+      if (left <= 0) {
+        this.leave(pad, id);
+        this.onStart(pad.chapter, [id]);
+        continue;
+      }
+      this.solo.set(id, left);
+      const player = this.state.players.get(id);
+      const whole = Math.ceil(left);
+      if (player && player.wait !== whole) player.wait = whole;
     }
   }
 
@@ -68,10 +97,11 @@ export class PadSystem {
     let best: Pad | undefined;
     let bestD = Infinity;
     for (const pad of this.state.pads) {
-      // PLAY / quick join: the first map's pads (every player has that one).
-      if (pad.members.length >= pad.maxPlayers || this.timers.has(pad.index) || pad.chapter !== 1) continue;
+      // PLAY / quick join: the first map's pads (every player has that one). A solo pad is never full.
+      if (pad.chapter !== 1) continue;
+      if (pad.maxPlayers > 1 && (pad.members.length >= pad.maxPlayers || this.timers.has(pad.index))) continue;
       const p = LOBBY_LAYOUT.pads[pad.index];
-      const d = Math.hypot(p.x - x, p.z - z) - (pad.members.length > 0 ? 200 : pad.maxPlayers === 1 ? 100 : 0);
+      const d = Math.hypot(p.x - x, p.z - z) - (pad.maxPlayers > 1 && pad.members.length > 0 ? 200 : pad.maxPlayers === 1 ? 100 : 0);
       if (d < bestD) {
         bestD = d;
         best = pad;
@@ -86,16 +116,26 @@ export class PadSystem {
   }
 
   private join(pad: Pad, id: string) {
-    if (pad.members.length >= pad.maxPlayers) return;
+    const solo = pad.maxPlayers === 1;
+    if (!solo && pad.members.length >= pad.maxPlayers) return;
     // A map you haven't unlocked (or one not built yet): you can stand there, but not join.
     if (!chapterPlayable(pad.chapter) || !chapterUnlocked(pad.chapter, this.bestOf(id))) return;
     pad.members.push(id);
     if (!pad.host) pad.host = id;
+    if (solo) {
+      this.solo.set(id, LOBBY_RULES.fullCountdown);
+      const player = this.state.players.get(id);
+      if (player) player.wait = LOBBY_RULES.fullCountdown;
+    }
   }
 
   private leave(pad: Pad, id: string) {
     const i = pad.members.indexOf(id);
     if (i >= 0) pad.members.splice(i, 1);
+    if (this.solo.delete(id) || pad.maxPlayers === 1) {
+      const player = this.state.players.get(id);
+      if (player && player.wait !== -1) player.wait = -1;
+    }
     if (pad.host === id) pad.host = pad.members[0] ?? "";
     if (pad.members.length === 0) this.reset(pad);
   }

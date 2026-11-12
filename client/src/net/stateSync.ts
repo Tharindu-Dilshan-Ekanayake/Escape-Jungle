@@ -16,6 +16,8 @@ interface NetPlayer {
   swing: number;
   best: number;
   st: number;
+  /** Own countdown on a solo pad (-1 none). */
+  wait: number;
 }
 interface NetPad {
   index: number;
@@ -65,7 +67,7 @@ export function syncState(state: NetState, me: string, onNewPlayer: (name: strin
   const seen = new Set<string>();
   state.players.forEach((p, id) => {
     seen.add(id);
-    players.push({ id, name: p.name, uid: p.uid, zone: p.zone, connected: p.connected, best: p.best ?? 0 });
+    players.push({ id, name: p.name, uid: p.uid, zone: p.zone, connected: p.connected, best: p.best ?? 0, wait: p.wait ?? -1 });
     if (!known.has(id)) {
       known.add(id);
       if (id !== me) onNewPlayer(p.name);

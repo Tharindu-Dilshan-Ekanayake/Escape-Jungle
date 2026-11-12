@@ -57,7 +57,8 @@ function stateOf(pad: PadView | undefined, size: number, chapter: number, myBest
   // Maps not built yet, or not unlocked by me (offline: only the first map).
   if (!chapterPlayable(chapter)) return { title: "Coming soon", status: "SOON", count: 0, max, countdown: -1, chapter };
   if (online ? !chapterUnlocked(chapter, myBest) : chapter !== 1) return { title: `Escape map ${chapter - 1} first`, status: "LOCKED", count, max, countdown: -1, chapter };
-  if (!online) return { title: "Solo expedition", status: "SOLO", count: 0, max: 1, countdown: -1, chapter };
+  // A solo pad is never taken: everyone standing on it counts down and leaves on their own.
+  if (!online || max === 1) return { title: "Solo expedition", status: "SOLO", count: 0, max: 1, countdown: -1, chapter };
   const countdown = pad?.countdown ?? -1;
   const host = pad?.host ? nameOf(pad.host) : "";
   const title = count > 0 && host ? host : max === 1 ? "Solo expedition" : `${max}-player crew`;

@@ -37,7 +37,8 @@ export function PartyPanel() {
   const online = status === "online";
   const spot = LOBBY_LAYOUT.pads[padIndex];
   const size = online ? (pad?.maxPlayers ?? spot?.size ?? 1) : 1;
-  const members = online ? (pad?.members ?? []) : [me];
+  // A solo pad is per player: other players standing on it are not in my crew.
+  const members = online ? (size === 1 ? [me] : (pad?.members ?? [])) : [me];
   const chapter = spot?.chapter ?? 1;
   const map = CHAPTERS.find((c) => c.n === chapter);
 
@@ -55,7 +56,8 @@ export function PartyPanel() {
     }
   }, [online, padIndex, localLeft, chapter]);
 
-  const countdown = online ? (pad?.countdown ?? -1) : Math.max(0, localLeft);
+  const myWait = players.find((p) => p.id === me)?.wait ?? -1;
+  const countdown = online ? (size === 1 ? myWait : (pad?.countdown ?? -1)) : Math.max(0, localLeft);
   const counting = countdown >= 0;
   const missing = size - members.length;
   const leave = () => leavePad(padIndex);

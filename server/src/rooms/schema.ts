@@ -23,6 +23,8 @@ export class Player extends Schema {
   @type("boolean") connected = true;
   /** Highest chapter escaped (0 = none): which maps this player may pick. */
   @type("uint8") best = 0;
+  /** Own countdown (whole seconds) while standing on a solo pad, -1 otherwise. Solo pads are per player. */
+  @type("int8") wait = -1;
 }
 
 /** One party pad. */
