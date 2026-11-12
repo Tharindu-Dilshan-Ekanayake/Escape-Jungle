@@ -12,6 +12,7 @@ import { BOXITY_HOSTING_ID, DEV_SERVER_WS } from "../config/platform";
 import { usePlatformStore } from "../store/platformStore";
 import { getAuthToken, guestNameForServer, getSDK, onChatBubble, playerInRoom, playerJoined, updateRoom } from "../platform/boxity";
 import { guestSaveKey } from "../platform/saveKey";
+import { joinRequestedRoom, requestedRoomId } from "./hostedRoom";
 import { saveNow } from "../game/save/runSave";
 import { useLobbyStore } from "../store/lobbyStore";
 import { useGameStore } from "../store/gameStore";
@@ -144,15 +145,31 @@ async function connect() {
   let delay = RETRY_BASE_MS;
   for (;;) {
     try {
-      client = await resolveClient();
       const options: JoinOptions = { token: getAuthToken(), guestName: guestNameForServer(), saveKey: guestSaveKey() };
-      let r: Room | null = null;
-      const roomId = new URLSearchParams(location.search).get("roomId");
+      // ?roomId= (Open Rooms Join, friend invite): that room on its own pod first.
+      const roomId = requestedRoomId();
       if (roomId && !triedRoomId) {
         triedRoomId = true;
-        r = await client.joinById(roomId, options).catch(() => null); // gone or full -> matchmaking
+        const hit = BOXITY_HOSTING_ID && getSDK() ? await joinRequestedRoom(BOXITY_HOSTING_ID, roomId, options) : null;
+        if (hit) {
+          client = hit.client;
+          endpointUrl = hit.endpoint;
+          attach(hit.room);
+          return;
+        }
+        // Local dev has no directory: a plain joinById on the dev server.
+        if (!BOXITY_HOSTING_ID) {
+          client = await resolveClient();
+          const local = await client.joinById(roomId, options).catch(() => null);
+          if (local) {
+            attach(local);
+            return;
+          }
+        }
       }
-      attach(r ?? (await client.joinOrCreate(ROOM_NAMES.lobby, options)));
+      // Gone, full or not found -> normal matchmaking.
+      client = await resolveClient();
+      attach(await client.joinOrCreate(ROOM_NAMES.lobby, options));
       return;
     } catch (err) {
       if (Date.now() + delay > deadline) {
