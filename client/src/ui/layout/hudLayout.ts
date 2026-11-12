@@ -26,9 +26,11 @@ export interface HudLayout {
   mini: Box & { size: number };
   clock: Box;
   timer: Box & { font: number };
-  tracker: Box & { width: number; compact: boolean };
+  tracker: Box & { width: number; compact: boolean; scale: number };
   clearBar: { top: number; width: number; font: number };
   banner: { top: number; maxWidth: number; font: number };
+  /** The grinder arrow badge under the banner. */
+  arrow: { top: number; scale: number };
   /** Team / upgrades (phones) / settings row. */
   topButtons: Box & { size: number };
   /** Desktop only: the big UPGRADES button (phones put a small one in the top row). */
@@ -63,9 +65,10 @@ function compute(): HudLayout {
       mini: { size: 176, top: 68, right: 12 },
       clock: { top: 68 + 176 + 14, right: 12 },
       timer: { bottom: 132, right: 16, font: 30 },
-      tracker: { top: 68 + 176 + 54, right: 12, width: 240, compact: false },
+      tracker: { top: 68 + 176 + 54, right: 12, width: 240, compact: false, scale: 1 },
       clearBar: { top: 8, width: Math.min(w * 0.86, 460), font: 28 },
       banner: { top: 86, maxWidth: Math.min(w * 0.6, 760), font: 22 },
+      arrow: { top: 86 + 44, scale: 1 },
       topButtons: { top: 12, right: 12, size: 48 },
       upgrades: { bottom: 16, right: 16, compact: false },
       bag: { bottom: 16, left: 16, scale: 1 },
@@ -81,21 +84,24 @@ function compute(): HudLayout {
     };
   }
   if (mode === "landscape") {
-    // Phones sideways: minimap top-right with the button row beside it, adventures
-    // under the (empty) top-left corner, status card bottom-left, thumbs bottom-right.
+    // Phones sideways. Top-right: button row, the small minimap under it, then clock and
+    // timer. The top-left ~60% stays empty (Boxity's logos); adventures sit lower on the
+    // left, the clear bar and banner start below the logo strip. Thumbs bottom-right.
     const s = h < 430 ? 1 : 1.2;
-    const mini = Math.round(92 * s);
-    const btn = Math.round(40 * s);
+    const btn = Math.round(36 * s);
+    const mini = Math.round(66 * s);
+    const mTop = 8 + btn + 6;
+    const under = mTop + mini + 14 + 4; // below the minimap frame
     return {
       mode, touch, w, h,
-      mini: { size: mini, top: 8, right: 8 },
-      // The minimap frame is size + 14 px: start below it.
-      clock: { top: 8 + mini + 14 + 6, right: 8 },
-      timer: { top: 8 + mini + 14 + 6 + 30, right: 12, font: 15 },
-      tracker: { top: 60, left: 8, width: 190, compact: true },
-      clearBar: { top: 4, width: Math.min(w * 0.4, 360), font: 16 },
-      banner: { top: 44, maxWidth: Math.min(w * 0.44, 460), font: 13 },
-      topButtons: { top: 8, right: mini + 16, size: btn },
+      mini: { size: mini, top: mTop, right: 8 },
+      clock: { top: under, right: 8 },
+      timer: { top: under + 26, right: 12, font: 14 },
+      tracker: { top: 64, left: 8, width: 170, compact: true, scale: 0.85 },
+      clearBar: { top: 6, width: Math.min(w * 0.32, 280), font: 12 },
+      banner: { top: 42, maxWidth: Math.min(w * 0.42, 440), font: 11 },
+      arrow: { top: 42 + 34, scale: 0.7 },
+      topButtons: { top: 8, right: 8, size: btn },
       upgrades: { top: 8, right: 8, compact: true },
       bag: { bottom: 8, left: 8, scale: 0.72 * s },
       hotbar: { bottom: 8, size: 56, label: false },
@@ -103,7 +109,7 @@ function compute(): HudLayout {
       // Above the status card (the centre is kept for the tap-able action prompt).
       pouch: { bottom: Math.round(8 + 110 * 0.72 * s + 10), left: 8, center: false },
       dialogue: { bottom: 70, width: Math.min(w * 0.56, 560) },
-      popupTop: 70,
+      popupTop: 130,
       prompt: { top: Math.round(h * 0.56), font: 15 },
       cut: { right: 22, bottom: 92, size: Math.round(86 * s) },
       jump: { right: 26, bottom: 10, size: Math.round(66 * s) },
@@ -115,18 +121,23 @@ function compute(): HudLayout {
   // empty top-left corner); the clear bar under those; bars + status card bottom-left
   // (scaled down); thumb buttons bottom-right.
   const narrow = w < 430;
-  const mini = narrow ? 80 : 104;
   const btn = narrow ? 34 : 40;
-  const below = 50 + mini + 14 + 6 + 30 + 26; // under the minimap frame, clock and timer
+  const mini = narrow ? 72 : 96;
+  const mTop = 8 + btn + 6;
+  const under = mTop + mini + 14 + 4; // below the minimap frame
+  const below = under + 26 + 8; // just below the clock and timer: the clear bar
   const card = 0.6; // status card scale
   return {
     mode, touch, w, h,
-    mini: { size: mini, top: 50, right: 8 },
-    clock: { top: 50 + mini + 14 + 6, right: 8 },
-    timer: { top: 50 + mini + 14 + 6 + 28, right: 12, font: 13 },
-    tracker: { top: 52, left: 8, width: Math.max(140, w - mini - 28), compact: true },
-    clearBar: { top: below, width: Math.min(w - 24, 340), font: 13 },
-    banner: { top: below + 34, maxWidth: w - 32, font: 12 },
+    mini: { size: mini, top: mTop, right: 8 },
+    clock: { top: under, right: 8 },
+    timer: { top: under + 26, right: 12, font: 13 },
+    // Left top stays empty for the logos; adventures start lower and smaller.
+    tracker: { top: 64, left: 8, width: Math.max(130, w - mini - 44), compact: true, scale: 0.85 },
+    clearBar: { top: below, width: Math.min(w - 24, 260), font: 11 },
+    // The banner starts below the bar (label + bar are ~40 px) so it never covers the label.
+    banner: { top: below + 32, maxWidth: w - 32, font: 11 },
+    arrow: { top: below + 32 + 36, scale: 0.7 },
     topButtons: { top: 8, right: 8, size: btn },
     upgrades: { top: 8, right: 8, compact: true },
     bag: { bottom: 8, left: 8, scale: card },
@@ -134,8 +145,8 @@ function compute(): HudLayout {
     bars: { bottom: Math.round(8 + 110 * card + 6), left: 8, kind: "stack", barW: 70, scale: 0.8 },
     pouch: { bottom: Math.round(8 + 110 * card + 6 + 74), left: 8, center: false },
     dialogue: { bottom: touch ? 230 : 120, width: w - 24 },
-    popupTop: below + 70,
-    prompt: { top: Math.round(h * 0.56), font: 13 },
+    popupTop: below + 120,
+    prompt: { top: Math.round(h * 0.58), font: 13 },
     cut: { right: 14, bottom: 140, size: 76 },
     jump: { right: 20, bottom: 52, size: 58 },
     use: { right: 96, bottom: 64, size: 58 },

@@ -58,7 +58,15 @@ export function UseButton() {
     }, 100);
     return () => window.clearInterval(id);
   }, []);
-  if (!state) return null;
+  // Always on screen (dim when there is nothing to do) so players know where USE is.
+  if (!state)
+    return (
+      <div className="absolute flex flex-col items-center opacity-45" style={{ right: L.right, bottom: L.bottom, width: L.size }}>
+        <div aria-hidden className="grid place-items-center rounded-full border-4 border-white/40 bg-[#8a5a34]/60 text-3xl" style={{ width: L.size, height: L.size }}>
+          ✋
+        </div>
+      </div>
+    );
   return (
     <div className="absolute flex flex-col items-center" style={{ right: L.right, bottom: L.bottom, width: L.size }}>
       <button

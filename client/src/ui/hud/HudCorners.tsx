@@ -95,7 +95,6 @@ export function UpgradesButton({ inline = false, size = 40 }: { inline?: boolean
         style={{ height: size, fontSize: size < 44 ? 13 : 15 }}
       >
         <span className="text-lg">⬆️</span>
-        {size >= 38 && <span className="text-outline">UPGRADES</span>}
         {n > 0 && <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full border-2 border-white bg-[#e8302a] text-[11px] font-bold">{n}</span>}
       </button>
     );
@@ -141,7 +140,7 @@ export function TopButtons() {
           className="rounded-xl border-2 border-black/40 bg-[#2f8f4f]/90 px-3 font-lobby font-bold text-white shadow"
           style={{ height: L.size, fontSize: L.size < 44 ? 15 : 18 }}
         >
-          🤝 Team {!touch && <span className={`ml-1 ${keyCap}`}>T</span>}
+          🤝{mode === "desktop" && <span className="ml-1">Team</span>} {mode === "desktop" && !touch && <span className={`ml-1 ${keyCap}`}>T</span>}
         </button>
       )}
       {mode !== "desktop" && <UpgradesButton inline size={L.size} />}

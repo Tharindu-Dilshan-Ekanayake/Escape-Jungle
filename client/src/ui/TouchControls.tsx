@@ -17,6 +17,10 @@ export function TouchControls({ showCut = true }: { showCut?: boolean }) {
   const zone = useRef<HTMLDivElement>(null);
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
+  // Where the joystick rests (always visible, so players see where to put their thumb).
+  const rest = useRef({ x: 0, y: 0 });
+  const portrait = L.mode === "portrait";
+  rest.current = { x: TOUCH.joystickRadius + (portrait ? 28 : 60), y: portrait ? Math.round(L.h * 0.67) : L.h - 150 };
 
   useEffect(() => {
     const el = zone.current;
@@ -29,9 +33,17 @@ export function TouchControls({ showCut = true }: { showCut?: boolean }) {
     let ly = 0;
     const R = TOUCH.joystickRadius;
 
-    const showBase = (visible: boolean) => {
-      if (base.current) base.current.style.opacity = visible ? "1" : "0";
+    const place = (x: number, y: number) => {
+      if (base.current) base.current.style.transform = `translate(${x - R}px, ${y - R}px)`;
     };
+    const showBase = (visible: boolean) => {
+      if (base.current) base.current.style.opacity = visible ? "1" : "0.5";
+      if (!visible) {
+        place(rest.current.x, rest.current.y);
+        if (knob.current) knob.current.style.transform = "translate(0px, 0px)";
+      }
+    };
+    showBase(false);
 
     const onDown = (e: PointerEvent) => {
       if ((e.target as HTMLElement).closest("button")) return; // a control button
@@ -39,7 +51,7 @@ export function TouchControls({ showCut = true }: { showCut?: boolean }) {
         joyId = e.pointerId;
         ox = e.clientX;
         oy = e.clientY;
-        if (base.current) base.current.style.transform = `translate(${ox - R}px, ${oy - R}px)`;
+        place(ox, oy);
         if (knob.current) knob.current.style.transform = "translate(0px, 0px)";
         showBase(true);
       } else if (lookId < 0) {
@@ -89,21 +101,23 @@ export function TouchControls({ showCut = true }: { showCut?: boolean }) {
       window.removeEventListener("pointercancel", onUp);
       input.joyX = input.joyY = 0;
     };
-  }, []);
+  }, [L.w, L.h]);
 
   const R = TOUCH.joystickRadius;
   return (
     <div ref={zone} className="fixed inset-0 z-10 touch-none select-none">
       <div
         ref={base}
-        className="pointer-events-none absolute left-0 top-0 rounded-full border-4 border-white/50 bg-black/20 opacity-0 transition-opacity"
+        className="pointer-events-none absolute left-0 top-0 rounded-full border-4 border-white/60 bg-black/25 opacity-50 transition-opacity"
         style={{ width: R * 2, height: R * 2 }}
       >
         <div
           ref={knob}
-          className="absolute rounded-full bg-white/70"
+          className="absolute grid place-items-center rounded-full bg-white/70 text-2xl text-black/50"
           style={{ width: R, height: R, left: R / 2, top: R / 2 }}
-        />
+        >
+          ✥
+        </div>
       </div>
       {showCut && (
         <button
