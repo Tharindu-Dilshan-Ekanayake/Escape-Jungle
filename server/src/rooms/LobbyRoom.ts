@@ -1,6 +1,6 @@
 import type { Client } from "@colyseus/core";
 import { BaseRoom } from "./BaseRoom.js";
-import { Player, WorldState, type Pad } from "./schema.js";
+import { Player, WorldState } from "./schema.js";
 import { PadSystem } from "./PadSystem.js";
 import { MoveFilter } from "./MoveFilter.js";
 import { RunSystem } from "./RunSystem.js";
@@ -53,7 +53,7 @@ export class LobbyRoom extends BaseRoom<WorldState> {
     this.setState(new WorldState());
     // State patches every 50 ms: other players move smoothly (positions are tiny floats).
     this.setPatchRate(PATCH_MS);
-    this.pads = new PadSystem(this.state, (pad) => void this.startRun(pad), (sid) => this.state.players.get(sid)?.best ?? 0);
+    this.pads = new PadSystem(this.state, (chapter, crew) => void this.startRun(chapter, crew),(sid) => this.state.players.get(sid)?.best ?? 0);
     this.setSimulationInterval((dt) => this.pads.tick(dt / 1000), TICK_MS);
 
     this.runs = new RunSystem(
@@ -175,10 +175,8 @@ export class LobbyRoom extends BaseRoom<WorldState> {
    * Start a party's run. Exactly the same crew (solo = just you) continues its
    * saved expedition; anyone different means a fresh start.
    */
-  private async startRun(pad: Pad) {
+  private async startRun(chapter: number, wanted: string[]) {
     const runId = `${this.roomId}-${++this.runCounter}`;
-    const chapter = pad.chapter;
-    const wanted = [...pad.members];
     const saveIdOf = (sid: string) => this.ids.get(sid)?.saveId ?? null;
     const slot = RunSaves.slot(chapter, wanted.map(saveIdOf));
     let doc = null;

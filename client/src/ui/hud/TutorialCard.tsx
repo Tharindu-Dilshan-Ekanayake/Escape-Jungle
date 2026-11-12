@@ -3,6 +3,7 @@ import { TUTORIAL } from "../../config/tutorial";
 import { stopTutorial, tutorial, tutorialHighlight } from "../../game/tutorial/tutorial";
 import { formatCash } from "../../game/economy/economy";
 import { useHud } from "../layout/hudLayout";
+import { hudUrgent } from "./hudUrgent";
 
 /** Re-render when the guide changes (polled; the guide state is mutable). */
 export function useTutorialVersion() {
@@ -30,13 +31,25 @@ export const TUT_GLOW = "tut-glow";
 export function TutorialCard() {
   useTutorialVersion();
   const L = useHud((s) => s.banner);
+  const A = useHud((s) => s.arrow);
   const touch = useHud((s) => s.touch);
+  const desktop = useHud((s) => s.mode === "desktop");
+  // 0 = top spot free, 1 = urgent banner above, 2 = banner + grinder arrow above.
+  const [above, setAbove] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setAbove(hudUrgent.arrow ? 2 : hudUrgent.banner ? 1 : 0), 120);
+    return () => window.clearInterval(id);
+  }, []);
   const step = TUTORIAL.steps[tutorial.step];
   const now = performance.now() / 1000;
   const popping = now - tutorial.reward.at < 2.2 && tutorial.reward.amount > 0;
   if (!tutorial.active || !step) return null;
+  // The banner pill and the grinder arrow own the top-centre column while urgent. Desktop: the card
+  // slides below them; phones have no room for all three, so the card waits until they clear.
+  if (above > 0 && !desktop) return null;
+  const top = above === 2 ? A.top + 96 * A.scale : above === 1 ? L.top + L.font * 1.25 + 22 : L.top;
   return (
-    <div style={{ top: L.top, maxWidth: L.maxWidth }} className="fixed left-1/2 z-30 w-max -translate-x-1/2 font-lobby">
+    <div style={{ top, maxWidth: L.maxWidth }} className="fixed left-1/2 z-30 w-max -translate-x-1/2 font-lobby">
       <div className="flex items-center gap-3 rounded-2xl border-[3px] border-[#ffd23f] bg-[#1d140c]/80 px-3 py-2 text-white shadow-[0_6px_18px_rgba(0,0,0,0.45)]">
         <div className="rounded-xl bg-[#ffd23f] px-2 py-1 text-center leading-none text-[#3a2412]">
           <div className="text-[10px] font-bold">STEP</div>
