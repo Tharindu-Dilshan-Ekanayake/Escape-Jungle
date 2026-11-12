@@ -102,5 +102,5 @@ function bigSign(b: PartBuilder, colliders: Collider[], sign: (typeof BIG_SIGNS)
 }
 
 /** A big sign behind each expedition area (centre, half width, face height/centre) and the map it opens. */
-export const BIG_SIGNS = LOBBY_LAYOUT.areas.map((a) => ({ x: a.x, z: -15 - 5.3, halfW: 5, y: 6.3, h: 2.3, chapter: a.chapter }));
+export const BIG_SIGNS = LOBBY_LAYOUT.areas.map((a) => ({ x: a.x, z: -15 - 5.3, halfW: 8, y: 6.3, h: 2.3, chapter: a.chapter }));
 

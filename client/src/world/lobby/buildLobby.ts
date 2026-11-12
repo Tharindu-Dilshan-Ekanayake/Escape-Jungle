@@ -67,8 +67,8 @@ export function buildLobby(): LobbyBuild {
 
   // Expedition pads (positions shared with the server): a wooden boardwalk under each row,
   // each pad a worn plank square with a glowing outline and a live signboard behind it.
-  const half = LOBBY_LAYOUT.padSize / 2 + 0.8;
-  for (const a of LOBBY_LAYOUT.areas) for (const rowZ of [-9, -15]) boardwalk(b, a.x - 3 - half, a.x + 3 + half, rowZ);
+  const reach = ((LOBBY_LAYOUT.padCols - 1) * LOBBY_LAYOUT.padPitch) / 2 + LOBBY_LAYOUT.padSize / 2 + 0.8;
+  for (const a of LOBBY_LAYOUT.areas) for (const rowZ of LOBBY_LAYOUT.padRows) boardwalk(b, a.x - reach, a.x + reach, rowZ);
   LOBBY_LAYOUT.pads.forEach((p, i) => {
     b.push([p.x, 0, p.z]);
     expeditionPad(b, LOBBY_LAYOUT.padSize, p.size, MAP_GLOW[p.chapter] ?? MAP_GLOW[1]);

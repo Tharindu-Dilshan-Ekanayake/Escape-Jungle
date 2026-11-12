@@ -16,12 +16,16 @@ import { CHAPTERS, LOBBY_LAYOUT, chapterPlayable, chapterUnlocked } from "@share
 import { useLobbyStore, type PadView } from "../../store/lobbyStore";
 import { PAD_SIGN, padSignSpot } from "./padSigns";
 
+/** Signs are designed on a 512 x 256 face, then drawn at half size into the atlas (texture budget: 1024 px). */
 const CELL_W = 512;
 const CELL_H = 256;
-const COLS = 2;
+const TEX_SCALE = 0.5;
+const COLS = 4;
 const N = LOBBY_LAYOUT.pads.length;
-const ATLAS_W = CELL_W * COLS;
-const ATLAS_H = CELL_H * Math.ceil(N / COLS);
+const CW = CELL_W * TEX_SCALE;
+const CH = CELL_H * TEX_SCALE;
+const ATLAS_W = CW * COLS;
+const ATLAS_H = CH * Math.ceil(N / COLS);
 
 interface SignState {
   title: string;
@@ -190,10 +194,10 @@ export function PadSigns() {
       const sp = padSignSpot(i);
       const col = i % COLS;
       const row = Math.floor(i / COLS);
-      const u0 = (col * CELL_W) / ATLAS_W;
-      const u1 = ((col + 1) * CELL_W) / ATLAS_W;
-      const v1 = 1 - (row * CELL_H) / ATLAS_H;
-      const v0 = 1 - ((row + 1) * CELL_H) / ATLAS_H;
+      const u0 = (col * CW) / ATLAS_W;
+      const u1 = ((col + 1) * CW) / ATLAS_W;
+      const v1 = 1 - (row * CH) / ATLAS_H;
+      const v0 = 1 - ((row + 1) * CH) / ATLAS_H;
       const z = sp.z + 0.005;
       pos.set([sp.x - w / 2, sp.y - h / 2, z, sp.x + w / 2, sp.y - h / 2, z, sp.x + w / 2, sp.y + h / 2, z, sp.x - w / 2, sp.y + h / 2, z], i * 12);
       uv.set([u0, v0, u1, v0, u1, v1, u0, v1], i * 8);
@@ -239,7 +243,11 @@ export function PadSigns() {
       const ctx = r.canvas.getContext("2d")!;
       const myBest = players.find((pl) => pl.id === me)?.best ?? 0;
       r.states = LOBBY_LAYOUT.pads.map((spot, i) => stateOf(pads[i], spot.size, spot.chapter, myBest, online, nameOf));
-      r.states.forEach((st, i) => drawSign(ctx, (i % COLS) * CELL_W, Math.floor(i / COLS) * CELL_H, st));
+      r.states.forEach((st, i) => {
+        ctx.setTransform(TEX_SCALE, 0, 0, TEX_SCALE, (i % COLS) * CW, Math.floor(i / COLS) * CH);
+        drawSign(ctx, 0, 0, st);
+      });
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       r.texture.needsUpdate = true;
       r.states.forEach((st, i) => r.columns.setColorAt(i, GLOW_COLOR[st.status]));
       if (r.columns.instanceColor) r.columns.instanceColor.needsUpdate = true;

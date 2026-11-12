@@ -14,7 +14,7 @@ export const LOBBY_VIEW = {
   /** Compass mosaic in the middle of the plaza. */
   centre: { x: 0, z: 1, r: 3.6 },
   parkTrees: [
-    [15.5, 9], [15.5, -1], [-11, -19], [11, -19],
+    [15.5, 9], [15.5, -1], [-10.5, -19], [10.5, -19],
   ] as [number, number][],
   /** Benches facing the plaza centre: [x, z]. */
   benches: [
@@ -48,7 +48,7 @@ export const LOBBY_VIEW = {
   arrows: { x: 0, fromZ: 7.2, toZ: -4.6, step: 1.45 },
   /** Bouncy mushrooms: stand on one to fly. */
   mushrooms: [
-    [11.5, 7.5], [-11, 8.5], [12, -9.5],
+    [11.5, 7.5], [-11, 8.5], [10.5, -9.5],
   ] as [number, number][],
   bounce: { radius: 1.25, velocity: 15 },
   /** Waterfall cliff outside the north fence. */
